@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://bnn3uy7gkvy1l"]
+
+[ext_resource type="Script" uid="uid://j7i16886ncbb" path="res://addons/stairs_generator/stairs.gd" id="1_uhqqe"]
+
+[node name="Node3D" type="Node3D"]
+
+[node name="Stairs" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.12839, 0.142914, 0)
+script = ExtResource("1_uhqqe")
+size = Vector3(3.25677, 1.28583, 1)
+metadata/_custom_type_script = ExtResource("1_uhqqe")

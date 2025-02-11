@@ -1,16 +1,26 @@
 @tool
 extends EditorNode3DGizmoPlugin
 
+const SETTING_SNAP_ENABLED: StringName = &"plugins/stair_generator/snap_enabled"
+const SETTING_SNAP_DISTANCE: StringName = &"plugins/stair_generator/snap_distance"
+
 const Stairs := preload("res://addons/stairs_generator/stairs.gd")
 
 func _init():
 	create_material("main", Color(1,0,0))
 	create_handle_material("handles")
+	EditorInterface.get_inspector().property_edited.connect(_on_property_edited)
+
+func _on_property_edited(property: StringName) -> void:
+	if EditorInterface.get_inspector().get_edited_object() is Stairs and property == &"size":
+		pass
 
 func _redraw(gizmo: EditorNode3DGizmo) -> void:
 	gizmo.clear()
 	
 	var node: Stairs = gizmo.get_node_3d()
+	if not node.resized.is_connected(_redraw):
+		node.resized.connect(_redraw.bind(gizmo))
 	
 	var lines: PackedVector3Array = box_get_lines(node.size)
 	var handles: PackedVector3Array = box_get_handles(node.size)
@@ -79,10 +89,6 @@ func box_get_handle_name(handle_id: int) -> String:
 		4,5: return "Size Z"
 	return ""
 
-#func _get_handle_value(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool) -> Variant:
-	#return
-
-
 func _set_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, camera: Camera3D, screen_pos: Vector2) -> void:
 	var node: Stairs = gizmo.get_node_3d()
 	var initial_transform: Transform3D = gizmo.get_meta(&"initial_transform")
@@ -109,7 +115,9 @@ func _set_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, came
 	else:
 		r_box_size[axis] = ra[axis] - neg_end if sign > 0 else pos_end - ra[axis]
 	
-	#TODO Snapping
+	var plugin: EditorPlugin = Engine.get_meta(&"stairs_generator")
+	if plugin.is_snap_enabled():
+		r_box_size[axis] = snappedf(r_box_size[axis], plugin.get_snap_distance())
 	
 	r_box_size[axis] = max(r_box_size[axis], 0.001)
 	
@@ -119,7 +127,7 @@ func _set_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, came
 		if sign > 0:
 			pos_end = neg_end + r_box_size[axis]
 		else:
-			pos_end = neg_end - r_box_size[axis]
+			neg_end = pos_end - r_box_size[axis]
 		
 		var offset: Vector3 = Vector3()
 		offset[axis] = (pos_end + neg_end) * 0.5
@@ -141,7 +149,9 @@ func _commit_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, r
 	ur.add_do_property(node, &"position", node.position) 
 	ur.add_undo_property(node, &"size", restore.size)
 	ur.add_undo_property(node, &"position", restore.position)
-	ur.commit_action(false)
+	ur.add_do_method(self, "_redraw", gizmo)
+	ur.add_undo_method(self, "_redraw", gizmo)
+	ur.commit_action(true)
 
 func _has_gizmo(for_node_3d: Node3D) -> bool:
 	return is_instance_of(for_node_3d, Stairs)

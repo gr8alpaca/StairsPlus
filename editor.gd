@@ -4,10 +4,8 @@ extends EditorScript
 
 # Called when the script is executed (using File -> Run in Script Editor).
 func _run() -> void:
-	var lines: PackedVector3Array = box_get_lines(Vector3.ONE * 2.0)
-	@warning_ignore("integer_division")
-	for i in int(lines.size())/2:
-		print("%1.01v - %1.01v" % [lines[i * 2], lines[i * 2 + 1]])
+	print("Running...")
+	EditorInterface.get_editor_settings().get("")
 	
 func box_get_points(size: Vector3) -> PackedVector3Array:
 	var half_size: Vector3 = size/2.0

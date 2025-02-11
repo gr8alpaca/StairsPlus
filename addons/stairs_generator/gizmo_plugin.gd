@@ -102,29 +102,31 @@ func _set_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, came
 	
 	var r_segments:= Geometry3D.get_closest_points_between_segments(axis_segments[0], axis_segments[1], p_segments[0], p_segments[1] )
 	var ra: Vector3 = r_segments[0]
-	var rb: Vector3 = r_segments[1]
 	
-	node.size = initial_size
+	var r_box_size: Vector3 = initial_size
 	if Input.is_key_pressed(KEY_ALT):
-		node.size[axis] = ra[axis] * sign * 2
+		r_box_size[axis] = ra[axis] * sign * 2
 	else:
-		node.size[axis] = ra[axis] - neg_end if sign > 0 else pos_end - ra[axis]
+		r_box_size[axis] = ra[axis] - neg_end if sign > 0 else pos_end - ra[axis]
 	
 	#TODO Snapping
 	
-	node.size[axis] = max(node.size[axis], 0.001)
+	r_box_size[axis] = max(r_box_size[axis], 0.001)
 	
 	if Input.is_physical_key_pressed(KEY_ALT):
 		node.position = initial_transform.origin
 	else:
 		if sign > 0:
-			pos_end = neg_end + node.size[axis]
+			pos_end = neg_end + r_box_size[axis]
 		else:
-			pos_end = neg_end - node.size[axis]
+			pos_end = neg_end - r_box_size[axis]
 		
 		var offset: Vector3 = Vector3()
 		offset[axis] = (pos_end + neg_end) * 0.5
 		node.position = initial_transform * offset
+	
+	node.size = r_box_size
+	_redraw(gizmo)
 
 func _commit_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, restore: Variant, cancel: bool) -> void:
 	var node: Stairs = gizmo.get_node_3d()
@@ -136,7 +138,7 @@ func _commit_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, r
 	var ur : EditorUndoRedoManager = EditorInterface.get_editor_undo_redo()
 	ur.create_action("Change Stairs Size")
 	ur.add_do_property(node, &"size", node.size) 
-	ur.add_do_property(node, &"position", node.posiiton) 
+	ur.add_do_property(node, &"position", node.position) 
 	ur.add_undo_property(node, &"size", restore.size)
 	ur.add_undo_property(node, &"position", restore.position)
 	ur.commit_action(false)

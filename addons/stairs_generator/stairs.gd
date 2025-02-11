@@ -1,8 +1,10 @@
 @tool
 extends Node3D
 
-@export var size: Vector3 = Vector3.ONE
+@export var size: Vector3 = Vector3.ONE: set = set_size
 
+func set_size(val: Vector3) -> void:
+	size = val.maxf(0.0)
 
 #func _get_property_list() -> Array[Dictionary]:
 	#var props: Array[Dictionary]

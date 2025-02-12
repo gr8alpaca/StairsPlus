@@ -40,9 +40,9 @@ func _begin_handle_action(gizmo: EditorNode3DGizmo, handle_id: int, secondary: b
 func box_get_points(size: Vector3) -> PackedVector3Array:
 	var half_size: Vector3 = size/2.0
 	var points: PackedVector3Array
-	for x: float in [half_size.x, -half_size.x]:
-		for y: float in [half_size.y, -half_size.y]:
-			for z: float in [half_size.z, -half_size.z]:
+	for z: float in [-half_size.z, half_size.z,]:
+		for y: float in [-half_size.y, half_size.y]:
+			for x: float in [-half_size.x, half_size.x]:
 				points.push_back(Vector3(x, y, z))
 	return points
 

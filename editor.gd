@@ -2,11 +2,19 @@
 extends EditorScript
 
 
-# Called when the script is executed (using File -> Run in Script Editor).
 func _run() -> void:
 	print("Running...")
-	EditorInterface.get_editor_settings().get("")
 	
+	var box: BoxMesh = BoxMesh.new()
+	var arr:= box.get_mesh_arrays()
+	for i: int in arr.size():
+		if not arr[i]: continue
+		printt("#%d: " % i, arr[i])
+	
+	#printt(box.get_mesh_arrays())
+
+
+
 func box_get_points(size: Vector3) -> PackedVector3Array:
 	var half_size: Vector3 = size/2.0
 	var points: PackedVector3Array

@@ -37,7 +37,6 @@ func _init() -> void:
 	mesh = RenderingServer.mesh_create()
 	RenderingServer.instance_set_base(instance, mesh)
 	
-	
 	body = PhysicsServer3D.body_create()
 	PhysicsServer3D.body_set_mode(body, PhysicsServer3D.BODY_MODE_STATIC)
 	PhysicsServer3D.body_set_collision_layer(body, 1)
@@ -46,86 +45,61 @@ func _init() -> void:
 
 
 func redraw() -> void:
-	pass
+	foo()
 
-func draw_box() -> void:
-	var arr: Array
-	arr.resize(Mesh.ARRAY_MAX)
-	arr[Mesh.ARRAY_VERTEX] = box_get_points(size)
-	
-	RenderingServer.mesh_add_surface_from_arrays(mesh, 
-	RenderingServer.PRIMITIVE_TRIANGLES, 
-	[]
-	)
-
-enum { FACE_FORWARD = 0, FACE_BACK= 1 }
 
 func foo() -> void:
-	const FACES:Array[PackedInt32Array] = [ 
-		[1,5,7,7,3,1], # FORWARD
-		[6,4,0,0,2,6], # BACK
-		[2,0,1,1,3,2], # RIGHT
-		[7,5,4,4,6,7], # LEFT
-		[5,1,0,0,4,5 ], # UP
-		[2,3,7,7,6,2], # DOWN
-		]
-	
 	var verts:= box_get_points(size) * global_transform.affine_inverse()
 	
-	var indexes: PackedInt32Array =  FACES[0] + FACES[1] + FACES[2] + FACES[3] + FACES[4] + FACES[5]
-	const UVS: PackedVector2Array = \
-	#[
-		#Vector2.ZERO, Vector2.RIGHT, 
-		#
-		#Vector2.DOWN, Vector2.RIGHT + Vector2.DOWN, 
-		#
-		#-Vector2.RIGHT, Vector2.ZERO, 
-		#
-		#-Vector2.RIGHT - Vector2.DOWN, -Vector2.DOWN, 
-		#]
+	var indexes: PackedInt32Array =  [
+		2,0,1,1,3,2, # Front
+		4,0,2,2,6,4, # Left
+		4,6,7,7,5,4, # Back
+		6,2,3,3,7,6, # Bottom
+		1,5,7,7,3,1,# Right
+		5,1,0,0,4,5, # Top
+		]
 	
+	const UVS: PackedVector2Array = \
 	[
-		Vector2.RIGHT, 					# 0
-		Vector2.UP,						# 1
-		Vector2.DOWN + Vector2.RIGHT, 	# 2
-		Vector2.LEFT + Vector2.UP,		# 3
-		Vector2.DOWN,					# 4
-		Vector2.DOWN,					# 5
-		Vector2.DOWN,					# 6
-		Vector2.DOWN,					# 7
-		
-		
-		
+		Vector2(0, 0),
+		Vector2(1, 0),
+		Vector2(0, 1),
+		Vector2(1, 1),
+		Vector2(1, 1),
+		Vector2(0, 1),
+		Vector2(1, 0),
+		Vector2(0, 0),
 	]
 	
+	#indexes = Geometry3D.tetrahedralize_delaunay(verts)
+	draw_mesh(verts, indexes, UVS)
+
+
+func draw_stair(size: Vector3, trans: Transform3D = Transform3D()) -> void:
+	size /= 2.0
+	var step_size:= get_step_size()
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	
+	var offset: Vector3 = size * Vector3(0.0, -0.5, 0.5)
+	var set_offset: Vector3 = Vector3(0.0, step_size.y, -step_size.z)
+	
+	for i: int in step_count:
+		
+		offset += set_offset
+
+
+func draw_mesh( verts: PackedVector3Array, indexes: PackedInt32Array, uvs: PackedVector2Array) -> void:
 	RenderingServer.mesh_clear(mesh)
 	var arr: Array
 	arr.resize(Mesh.ARRAY_MAX)
 	arr[Mesh.ARRAY_VERTEX] = verts
 	arr[Mesh.ARRAY_INDEX] = indexes
-	arr[Mesh.ARRAY_TEX_UV] = UVS
+	arr[Mesh.ARRAY_TEX_UV] = uvs
 	RenderingServer.mesh_add_surface_from_arrays(mesh, RenderingServer.PRIMITIVE_TRIANGLES, arr )
 	apply_material()
-	
-	#draw_triangles(
-		#PackedVector3Array([Vector3.RIGHT, Vector3.LEFT, Vector3.UP, Vector3.DOWN]),
-		#[Vector2.RIGHT, Vector2.DOWN,  Vector2.ZERO,  Vector2.RIGHT + Vector2.DOWN,],
-		#[0,1,2,3,1,0], 
-		#)
 
-#func draw_quad()
-
-func draw_triangles(verts: PackedVector3Array,  uv:= PackedVector2Array(), indexes: PackedInt32Array = [1,2,3], ) -> void:
-	RenderingServer.mesh_clear(mesh)
-	var arr: Array
-	arr.resize(Mesh.ARRAY_MAX)
-	arr[Mesh.ARRAY_VERTEX] = verts
-	arr[Mesh.ARRAY_INDEX] = indexes
-	arr[Mesh.ARRAY_TEX_UV] = uv
-	RenderingServer.mesh_add_surface_from_arrays(mesh, RenderingServer.PRIMITIVE_TRIANGLES, arr )
-	apply_material()
-	#print(box_get_points(size))
 
 func get_array() -> Array:
 	var arr: Array
@@ -135,23 +109,28 @@ func apply_material() -> void:
 	for i: int in RenderingServer.mesh_get_surface_count(mesh):
 		RenderingServer.mesh_surface_set_material(mesh, i, material)
 
+func box_get_points(size: Vector3) -> PackedVector3Array:
+	size /= 2.0
+	return [
+		Vector3(-size.x, size.y, size.z), 
+		Vector3(size.x, size.y, size.z), 
+		Vector3(-size.x, -size.y, size.z), 
+		Vector3(size.x, -size.y, size.z), 
+		Vector3(-size.x, size.y, -size.z), 
+		Vector3(size.x, size.y, -size.z), 
+		Vector3(-size.x, -size.y, -size.z), 
+		Vector3(size.x, -size.y, -size.z), 
+	]
+
+
 func get_step_height() -> float:
 	return size.y / float(step_count)
 
-func box_get_points(size: Vector3) -> PackedVector3Array:
-	var half_size: Vector3 = size/2.0
-	var points: PackedVector3Array
-	for x: float in [half_size.x, -half_size.x]:
-		for y: float in [half_size.y, -half_size.y]:
-			for z: float in [half_size.z, -half_size.z]:
-				points.push_back(Vector3(x, y, z))
-	return points
+func get_step_length() -> float:
+	return size.z / float(step_count)
 
-func box_get_indexes() -> PackedInt32Array:
-	var inds: PackedInt32Array
-	return [
-		
-	]
+func get_step_size() -> Vector3:
+	return size / Vector3(1.0, step_count, step_count)
 
 func _notification(what: int) -> void:
 	match what:

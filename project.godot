@@ -17,10 +17,6 @@ config/features=PackedStringArray("4.4", "GL Compatibility")
 
 enabled=PackedStringArray("res://addons/stairs_generator/plugin.cfg")
 
-[plugin]
-
-stair_generator/snap_distance=0.501
-
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

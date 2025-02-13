@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="16"
+   height="16"
+   viewBox="0 0 4 4"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#">
+  <defs
+     id="defs1" />
+  <g
+     id="layer1">
+    <path
+       d="M -5e-8,0.50000003 H 0.49999997 V 3e-8 H 1 v 0.5 H 1.5 V 1 H 1 V 1.5 H 0.49999997 V 1 H -5e-8 Z"
+       id="path25"
+       style="display:none;fill:#80ff45" />
+    <path
+       style="display:none;fill:#80ff45;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:0.25;stroke-dasharray:none"
+       d="M 0.5,0.75 H 0.75 V 0.5 H 1 V 0.75 H 1.25 V 1 H 1 V 1.25 H 0.75 V 1 H 0.5 Z"
+       id="path24"
+       transform="matrix(2.0000001,0,0,2,-1.0000001,-0.99999997)" />
+    <path
+       style="display:inline;fill:#fc7f7f;fill-opacity:1;stroke-width:0.25;stroke-dasharray:none"
+       d="M 4,0 H 3 V 1 H 2 V 2 H 1 V 3 H 0 v 1 h 4 z"
+       id="path27" />
+  </g>
+  <metadata
+     id="metadata20">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <cc:license
+           rdf:resource="http://creativecommons.org/publicdomain/zero/1.0/" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>

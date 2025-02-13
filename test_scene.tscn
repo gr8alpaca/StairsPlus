@@ -8,18 +8,17 @@ material = ExtResource("3_sasra")
 
 [node name="Node3D" type="Node3D"]
 
-[node name="Stairs" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0790405, 0)
-script = ExtResource("1_uhqqe")
-size = Vector3(0.5, 1.15808, 1)
-step_count = 4
-material = ExtResource("3_sasra")
-metadata/_custom_type_script = ExtResource("1_uhqqe")
-
 [node name="CSGBox3D" type="CSGBox3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0, 0)
+transform = Transform3D(2.98023e-08, 0, 1, 0, 1, 0, -1, 0, 2.98023e-08, -4, 0, 0)
 material = ExtResource("3_sasra")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 0)
 mesh = SubResource("BoxMesh_ia1lp")
+
+[node name="Stairs" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+script = ExtResource("1_uhqqe")
+step_count = 6
+material = ExtResource("3_sasra")
+metadata/_custom_type_script = ExtResource("1_uhqqe")

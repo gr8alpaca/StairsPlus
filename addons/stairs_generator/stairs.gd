@@ -45,61 +45,137 @@ func _init() -> void:
 
 
 func redraw() -> void:
-	foo()
-
+	RenderingServer.mesh_clear(mesh)
+	draw_stair(size, global_transform)
 
 func foo() -> void:
-	var verts:= box_get_points(size) * global_transform.affine_inverse()
-	
-	var indexes: PackedInt32Array =  [
-		2,0,1,1,3,2, # Front
-		4,0,2,2,6,4, # Left
-		4,6,7,7,5,4, # Back
-		6,2,3,3,7,6, # Bottom
-		1,5,7,7,3,1,# Right
-		5,1,0,0,4,5, # Top
-		]
-	
-	const UVS: PackedVector2Array = \
-	[
-		Vector2(0, 0),
-		Vector2(1, 0),
-		Vector2(0, 1),
-		Vector2(1, 1),
-		Vector2(1, 1),
-		Vector2(0, 1),
-		Vector2(1, 0),
-		Vector2(0, 0),
-	]
-	
-	#indexes = Geometry3D.tetrahedralize_delaunay(verts)
-	draw_mesh(verts, indexes, UVS)
+	pass
 
 
 func draw_stair(size: Vector3, trans: Transform3D = Transform3D()) -> void:
+	if size.x == 0 or size.y == 0 or size.z == 0: return
 	size /= 2.0
 	var step_size:= get_step_size()
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var half_step:= step_size/2.0
 	
-	var offset: Vector3 = size * Vector3(0.0, -0.5, 0.5)
-	var set_offset: Vector3 = Vector3(0.0, step_size.y, -step_size.z)
+	var offset: Vector3 = Vector3(0.0, -size.y, size.z) * float(step_count-1) / float(step_count)
+	var step_offset: Vector3 = Vector3(0.0, step_size.y, -step_size.z)
+	
+	
+	var arrays: Array
+	var st := SurfaceTool.new()
 	
 	for i: int in step_count:
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		st.set_tangent(Plane.PLANE_XY)
+		st.set_uv(Vector2.DOWN)
+		st.set_normal(Vector3.BACK)
+		st.add_vertex(trans * (offset + Vector3(-half_step.x, -half_step.y, half_step.z)))
 		
-		offset += set_offset
-
-
-func draw_mesh( verts: PackedVector3Array, indexes: PackedInt32Array, uvs: PackedVector2Array) -> void:
-	RenderingServer.mesh_clear(mesh)
-	var arr: Array
-	arr.resize(Mesh.ARRAY_MAX)
-	arr[Mesh.ARRAY_VERTEX] = verts
-	arr[Mesh.ARRAY_INDEX] = indexes
-	arr[Mesh.ARRAY_TEX_UV] = uvs
-	RenderingServer.mesh_add_surface_from_arrays(mesh, RenderingServer.PRIMITIVE_TRIANGLES, arr )
+		st.set_uv(Vector2.ZERO)
+		st.add_vertex(trans * (offset + Vector3(-half_step.x, half_step.y, half_step.z)))
+		
+		st.set_uv(Vector2.RIGHT)
+		st.add_vertex(trans * (offset + Vector3(half_step.x, half_step.y, half_step.z)))
+		
+		st.set_uv(Vector2.ONE)
+		st.add_vertex(trans * (offset + Vector3(half_step.x, -half_step.y, half_step.z)))
+		st.add_index(0)
+		st.add_index(1)
+		st.add_index(2)
+		st.add_index(2)
+		st.add_index(3)
+		st.add_index(0)
+		
+		st.set_tangent(-Plane.PLANE_XZ)
+		st.set_normal(Vector3.UP)
+		st.set_uv(Vector2.DOWN)
+		st.add_vertex(trans * (offset + Vector3(-half_step.x, half_step.y, half_step.z))) 
+		st.set_uv(Vector2.ZERO)
+		st.add_vertex(trans * (offset + Vector3(-half_step.x, half_step.y, -half_step.z)))
+		st.set_uv(Vector2.RIGHT)
+		st.add_vertex(trans * (offset + Vector3(half_step.x, half_step.y, -half_step.z)))
+		st.set_uv(Vector2.ONE)
+		st.add_vertex(trans * (offset + Vector3(half_step.x, half_step.y, half_step.z)))
+		st.add_index(4)
+		st.add_index(5)
+		st.add_index(6)
+		st.add_index(6)
+		st.add_index(7)
+		st.add_index(4)
+		
+		var side_scale: float =  i * step_size.y
+		#var side_uv:= Vector2(size.z/size.y, )
+		st.set_normal(Vector3.LEFT)
+		st.set_tangent(Plane.PLANE_YZ)
+		st.set_uv(Vector2(0, 1 + i))
+		st.add_vertex(trans * (offset + Vector3(-half_step.x, -half_step.y - side_scale, -half_step.z)))
+		st.set_uv(Vector2.ZERO)
+		st.add_vertex(trans * (offset + Vector3(-half_step.x, half_step.y, -half_step.z)))
+		st.set_uv(Vector2.RIGHT)
+		st.add_vertex(trans * (offset + Vector3(-half_step.x, half_step.y , half_step.z)))
+		st.set_uv(Vector2(1, 1 + i))
+		st.add_vertex(trans * (offset + Vector3(-half_step.x, -half_step.y - side_scale, half_step.z)))
+		st.add_index(8)
+		st.add_index(9)
+		st.add_index(10)
+		st.add_index(10)
+		st.add_index(11)
+		st.add_index(8)
+		
+		st.set_normal(Vector3.RIGHT)
+		st.set_tangent(-Plane.PLANE_YZ)
+		st.set_uv(Vector2(1, 1 + i))
+		st.add_vertex(trans *  (offset +Vector3(half_step.x, -half_step.y - side_scale, half_step.z)))
+		st.set_uv(Vector2.RIGHT)
+		st.add_vertex(trans * (offset + Vector3(half_step.x, half_step.y , half_step.z)))
+		st.set_uv(Vector2.ZERO)
+		st.add_vertex(trans * (offset + Vector3(half_step.x, half_step.y, -half_step.z)))
+		st.set_uv(Vector2(0, 1 + i))
+		st.add_vertex(trans *  (offset +Vector3(half_step.x, -half_step.y - side_scale, -half_step.z)))
+		st.add_index(12)
+		st.add_index(13)
+		st.add_index(14)
+		st.add_index(14)
+		st.add_index(15)
+		st.add_index(12)
+		
+		
+		
+		RenderingServer.mesh_add_surface_from_arrays(mesh, RenderingServer.PRIMITIVE_TRIANGLES, st.commit_to_arrays() )
+		st.clear()
+		#merge_arrays(arrays, st.commit_to_arrays())
+		
+		offset += step_offset
+		
+		if i != step_count - 1: continue
+		
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.FORWARD)
+	st.set_tangent(Plane.PLANE_XY)
+	st.set_uv(Vector2(0, step_count))
+	st.add_vertex(trans * (size * Vector3(1.0, -1.0, -1.0))) 
+	st.set_uv(Vector2.ZERO)
+	st.add_vertex(trans * (size * Vector3(1.0, 1.0, -1.0))) 
+	st.set_uv(Vector2.RIGHT)
+	st.add_vertex(trans * (size * Vector3(-1.0, 1.0, -1.0))) 
+	st.set_uv(Vector2(1, step_count))
+	st.add_vertex(trans * (size * Vector3(-1.0, -1.0, -1.0))) 
+	
+	st.add_index(0)
+	st.add_index(1)
+	st.add_index(2)
+	st.add_index(2)
+	st.add_index(3)
+	st.add_index(0)
+	
+	RenderingServer.mesh_add_surface_from_arrays(mesh, RenderingServer.PRIMITIVE_TRIANGLES, st.commit_to_arrays() )
+	
+	
+	# TODO add bottom draw
+	
 	apply_material()
-
+	#RenderingServer.mesh_add_surface_from_arrays(mesh, RenderingServer.PRIMITIVE_TRIANGLES, arrays )
 
 func get_array() -> Array:
 	var arr: Array
@@ -108,19 +184,6 @@ func get_array() -> Array:
 func apply_material() -> void:
 	for i: int in RenderingServer.mesh_get_surface_count(mesh):
 		RenderingServer.mesh_surface_set_material(mesh, i, material)
-
-func box_get_points(size: Vector3) -> PackedVector3Array:
-	size /= 2.0
-	return [
-		Vector3(-size.x, size.y, size.z), 
-		Vector3(size.x, size.y, size.z), 
-		Vector3(-size.x, -size.y, size.z), 
-		Vector3(size.x, -size.y, size.z), 
-		Vector3(-size.x, size.y, -size.z), 
-		Vector3(size.x, size.y, -size.z), 
-		Vector3(-size.x, -size.y, -size.z), 
-		Vector3(size.x, -size.y, -size.z), 
-	]
 
 
 func get_step_height() -> float:

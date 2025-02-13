@@ -9,8 +9,10 @@ material = ExtResource("3_sasra")
 [node name="Node3D" type="Node3D"]
 
 [node name="Stairs" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0790405, 0)
 script = ExtResource("1_uhqqe")
-step_count = 2
+size = Vector3(0.5, 1.15808, 1)
+step_count = 4
 material = ExtResource("3_sasra")
 metadata/_custom_type_script = ExtResource("1_uhqqe")
 

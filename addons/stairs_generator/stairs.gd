@@ -15,9 +15,6 @@ var step_count: int = 12: set = set_step_count
 @export var material: Material = StandardMaterial3D.new(): set = set_material
 @export var uv_scale: Vector2 = Vector2.ONE : set = set_uv_scale
 
-
-
-
 @export_group("Physics")
 @export_enum("Static", "Kinematic", "Rigid", "Rigid Linear")
 var physics_mode: int = 0: set = set_physics_mode
@@ -34,7 +31,9 @@ var render_layers: int = 0xFFFFFF: set = set_render_layers
 
 var instance: RID
 var mesh: RID
+
 var body: RID
+var shape: RID
 
 func foo() -> void:
 	redraw()
@@ -45,16 +44,34 @@ func _init() -> void:
 	RenderingServer.instance_set_base(instance, mesh)
 	
 	body = PhysicsServer3D.body_create()
+	shape = PhysicsServer3D.convex_polygon_shape_create()
+	PhysicsServer3D.body_add_shape(body, shape, )
 	PhysicsServer3D.body_set_mode(body, PhysicsServer3D.BODY_MODE_STATIC)
 	PhysicsServer3D.body_set_collision_layer(body, 1)
 	PhysicsServer3D.body_set_collision_mask(body, 1)
 	set_notify_transform(true)
 
+func update_shape() -> void:
+	PhysicsServer3D.shape_set_data(shape, get_shape_points())
+	PhysicsServer3D.body_set_shape_transform(body, 0, global_transform if is_inside_tree() else transform)
+
+func get_shape_points() -> PackedVector3Array:
+	return [
+		Vector3(size.x/2.0, size.y/2.0, -size.z/2.0),
+		Vector3(size.x/2.0, -size.y/2.0, -size.z/2.0),
+		Vector3(size.x/2.0, -size.y/2.0, size.z/2.0),
+		
+		Vector3(-size.x/2.0, size.y/2.0, -size.z/2.0),
+		Vector3(-size.x/2.0, -size.y/2.0, -size.z/2.0),
+		Vector3(-size.x/2.0, -size.y/2.0, size.z/2.0),
+	] # * (global_transform if is_inside_tree() else transform)
 
 func redraw() -> void:
 	RenderingServer.mesh_clear(mesh)
-	draw_stair(size, global_transform)
+	draw_stair(size, global_transform if is_inside_tree() else transform)
 	apply_material()
+
+#func 
 
 func draw_stair(size: Vector3, trans: Transform3D = Transform3D()) -> void:
 	if size.x == 0 or size.y == 0 or size.z == 0: return
@@ -196,15 +213,10 @@ func draw_stair(size: Vector3, trans: Transform3D = Transform3D()) -> void:
 	
 	RenderingServer.mesh_add_surface_from_arrays(mesh, RenderingServer.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
 
-func get_array() -> Array:
-	var arr: Array
-	return arr
-
 func apply_material() -> void:
 	var rid: RID = material.get_rid() if material else RID()
 	for i: int in RenderingServer.mesh_get_surface_count(mesh):
 		RenderingServer.mesh_surface_set_material(mesh, i, rid)
-
 
 func get_step_height() -> float:
 	return size.y / float(step_count)
@@ -218,8 +230,10 @@ func get_step_size() -> Vector3:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_ENTER_WORLD:
+			PhysicsServer3D.body_set_space(body, get_world_3d().space)
 			RenderingServer.instance_set_scenario(instance, get_world_3d().scenario)
 		NOTIFICATION_EXIT_WORLD:
+			PhysicsServer3D.body_set_space(body, RID())
 			RenderingServer.instance_set_scenario(instance, RID())
 		NOTIFICATION_VISIBILITY_CHANGED:
 			RenderingServer.instance_set_visible(instance, visible)
@@ -228,11 +242,9 @@ func _notification(what: int) -> void:
 			RenderingServer.free_rid(mesh)
 			RenderingServer.free_rid(instance)
 			PhysicsServer3D.free_rid(body)
-		
 		NOTIFICATION_TRANSFORM_CHANGED when is_inside_tree():
+			update_shape()
 			redraw()
-
-
 
 #region Setters
 
@@ -258,7 +270,8 @@ func set_step_count(val: int) -> void:
 
 func set_size(val: Vector3) -> void:
 	size = val.maxf(0.0)
-	redraw()
+	if is_inside_tree():
+		redraw()
 	resized.emit()
 
 func set_material(val: Material) -> void:
@@ -267,6 +280,7 @@ func set_material(val: Material) -> void:
 
 func set_uv_scale(val: Vector2) -> void:
 	uv_scale = val
-	redraw()
+	if is_inside_tree():
+		redraw()
 
 #endregion

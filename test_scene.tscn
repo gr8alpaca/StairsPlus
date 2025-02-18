@@ -1,18 +1,30 @@
-[gd_scene load_steps=6 format=3 uid="uid://bnn3uy7gkvy1l"]
+[gd_scene load_steps=8 format=3 uid="uid://bnn3uy7gkvy1l"]
 
 [ext_resource type="Script" uid="uid://j7i16886ncbb" path="res://addons/stairs_generator/stairs.gd" id="1_uhqqe"]
 [ext_resource type="Material" uid="uid://coxxeyeswqtvm" path="res://brick_material.tres" id="3_sasra"]
 
-[sub_resource type="BoxMesh" id="BoxMesh_ia1lp"]
-material = ExtResource("3_sasra")
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_ia1lp"]
+sky_horizon_color = Color(0.662243, 0.671743, 0.686743, 1)
+ground_horizon_color = Color(0.662243, 0.671743, 0.686743, 1)
+
+[sub_resource type="Sky" id="Sky_sasra"]
+sky_material = SubResource("ProceduralSkyMaterial_ia1lp")
+
+[sub_resource type="Environment" id="Environment_coq8p"]
+background_mode = 2
+sky = SubResource("Sky_sasra")
+tonemap_mode = 2
 
 [sub_resource type="GDScript" id="GDScript_ia1lp"]
 script/source = "extends CharacterBody3D
 
-
+const CAMERA_SENSITIVITY:= 1.0
 const SPEED = 5.0
 const JUMP_VELOCITY = 4.5
 
+func _ready() -> void:
+	if not Engine.is_editor_hint():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _physics_process(delta: float) -> void:
 	# Add the gravity.
@@ -33,27 +45,30 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.x = move_toward(velocity.x, 0, SPEED)
 		velocity.z = move_toward(velocity.z, 0, SPEED)
-
+	
 	move_and_slide()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not event.is_echo() and Input.is_key_pressed(KEY_ESCAPE):
+		Input.mouse_mode = (2 if Input.mouse_mode == 2 else 0) as Input.MouseMode
+	
+	if event is InputEventMouseMotion:
+		var cam: Camera3D = $Camera3D
+		event.relative /= 1000.0
+		rotation.y += event.relative.x * CAMERA_SENSITIVITY
+		cam.rotation.y = fmod(cam.rotation.y, PI)
+		cam.rotation.x += event.relative.y * CAMERA_SENSITIVITY
+		cam.rotation.x = clampf(cam.rotation.x, -PI/2.1, PI/2.1)
+		
 "
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_ia1lp"]
 
 [node name="Node3D" type="Node3D"]
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(-0.866023, -0.433016, 0.250001, 0, 0.499998, 0.866027, -0.500003, 0.749999, -0.43301, 0, 0, 0)
-shadow_enabled = true
-
-[node name="CSGBox3D" type="CSGBox3D" parent="."]
-transform = Transform3D(2.98023e-08, 0, 1, 0, 1, 0, -1, 0, 2.98023e-08, -4, 0, 0)
-visible = false
-material = ExtResource("3_sasra")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 0)
-visible = false
-mesh = SubResource("BoxMesh_ia1lp")
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_coq8p")
 
 [node name="Stairs" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
@@ -61,7 +76,9 @@ script = ExtResource("1_uhqqe")
 step_count = 6
 material = ExtResource("3_sasra")
 uv_scale = Vector2(0.25, 0.25)
-metadata/_custom_type_script = ExtResource("1_uhqqe")
+debug_color = Color(0, 0.6, 0.7, 0.584)
+metadata/_custom_type_script = "uid://j7i16886ncbb"
+metadata/_draw_collision_shape = true
 
 [node name="CSGBox3D2" type="CSGBox3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)

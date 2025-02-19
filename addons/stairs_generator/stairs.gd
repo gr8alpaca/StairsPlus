@@ -15,11 +15,8 @@ var step_count: int = 12: set = set_step_count
 var material: Material = StandardMaterial3D.new(): set = set_material
 
 @export
-var triplanar_mode: bool = true: set = set_triplanar_mode
+var triplanar_mode: bool = false: set = set_triplanar_mode
 
-func set_triplanar_mode(val: bool) -> void:
-	triplanar_mode = val
-	update_mesh()
 
 @export 
 var uv_scale: Vector2 = Vector2.ONE : set = set_uv_scale
@@ -188,28 +185,28 @@ func update_debug_mesh() -> void:
 
 func update_mesh() -> void:
 	RenderingServer.mesh_clear(mesh)
-	
 	if size.x == 0 or size.y == 0 or size.z == 0: return
-	var size: Vector3 = self.size/2.0
-	var step_size:= get_step_size()
-	var half_step:= step_size/2.0
+	var half_size: Vector3 = size/2.0
 	
-	var offset: Vector3 = Vector3(0.0, -size.y, size.z) * float(step_count-1) / float(step_count)
+	var step_size: Vector3 = get_step_size()
+	var half_step: Vector3 = step_size/2.0
+	
+	var offset: Vector3 = Vector3(0.0, -half_size.y, half_size.z) * float(step_count-1) / float(step_count)
 	var step_offset: Vector3 = Vector3(0.0, step_size.y, -step_size.z)
 	
-	var material_rid: RID = material.get_rid() if material else RID()
-	var arrays: Array
+	var scalar: Vector2 = uv_scale * Vector2(size.x, size.y + size.z) if triplanar_mode else uv_scale
 	var st := SurfaceTool.new()
 	
+	
 	for i: int in step_count:
-		var x1: float = 0.0
-		var x2: float = uv_scale.x * (size.x if triplanar_mode else 1.0)
 		
-		var y1: float = inverse_lerp(0, step_count, i) * uv_scale.y * ((size.y + size.z) / 2.0 if triplanar_mode else 1.0)
-		var y3: float = inverse_lerp(0, step_count, i + 1) * uv_scale.y * ((size.y + size.z) / 2.0 if triplanar_mode else 1.0)
+		var x1: float = 0.0
+		var x2: float = scalar.x
+		
+		var y1: float = inverse_lerp(0, step_count, i) * scalar.y
+		var y3: float = inverse_lerp(0, step_count, i + 1) * scalar.y
 		var y2: float = lerpf(y1, y3, size.y / (size.y + size.z) if triplanar_mode else 0.5)
 		
-		var triplanar_scale:Vector2 = Vector2(size.x, size.y) if triplanar_mode else Vector2.ONE
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
 		st.set_tangent(Plane.PLANE_XY)
 		st.set_normal(Vector3.BACK)
@@ -254,21 +251,28 @@ func update_mesh() -> void:
 		st.add_index(7)
 		st.add_index(4)
 		
-		var uv_start:= Vector2(inverse_lerp(0, step_count*2, i), 1.0 - inverse_lerp(0, step_count, i + 1)) * uv_scale
-		var uv_end:= Vector2(inverse_lerp(0, step_count*2, i + 1), 1.0) * uv_scale
-		var side_scale: float =  i * step_size.y
+		#var uv_delta: Vector2()
+		var side_scalar:= Vector2(uv_scale.x * size.z if triplanar_mode else uv_scale.x, uv_scale.y * size.y if triplanar_mode else uv_scale.y)
+		var uv_start:= Vector2(inverse_lerp(0, step_count, i), 1.0 - inverse_lerp(0, step_count, i + 1)) * side_scalar
+		var uv_end:= Vector2(inverse_lerp(0, step_count, i + 1), 1.0) * side_scalar
+		var vertex_y_offset: float =  i * step_size.y
 		
+		# TESTING
 		
 		st.set_normal(Vector3.LEFT)
 		st.set_tangent(Plane.PLANE_YZ)
-		st.set_uv(Vector2(uv_start.x, uv_end.y)) 
-		st.add_vertex(offset + Vector3(-half_step.x, -half_step.y - side_scale, -half_step.z))
-		st.set_uv(uv_start)
+		st.set_uv(get_uv(offset + Vector3(-half_step.x, -half_step.y - vertex_y_offset, -half_step.z), Vector3.LEFT))
+		st.add_vertex(offset + Vector3(-half_step.x, -half_step.y - vertex_y_offset, -half_step.z))
+		
+		st.set_uv(get_uv(offset + Vector3(-half_step.x, half_step.y, -half_step.z), Vector3.LEFT))
 		st.add_vertex(offset + Vector3(-half_step.x, half_step.y, -half_step.z))
-		st.set_uv(Vector2(uv_end.x, uv_start.y))
+		
+		st.set_uv(get_uv(offset + Vector3(-half_step.x, half_step.y , half_step.z), Vector3.LEFT))
 		st.add_vertex(offset + Vector3(-half_step.x, half_step.y , half_step.z))
-		st.set_uv(uv_end)
-		st.add_vertex(offset + Vector3(-half_step.x, -half_step.y - side_scale, half_step.z))
+		
+		st.set_uv(get_uv(offset + Vector3(-half_step.x, -half_step.y - vertex_y_offset, half_step.z), Vector3.LEFT))
+		st.add_vertex(offset + Vector3(-half_step.x, -half_step.y - vertex_y_offset, half_step.z))
+		
 		st.add_index(8)
 		st.add_index(9)
 		st.add_index(10)
@@ -280,13 +284,13 @@ func update_mesh() -> void:
 		st.set_normal(Vector3.RIGHT)
 		st.set_tangent(-Plane.PLANE_YZ)
 		st.set_uv(uv_end)
-		st.add_vertex (offset + Vector3(half_step.x, -half_step.y - side_scale, half_step.z))
+		st.add_vertex (offset + Vector3(half_step.x, -half_step.y - vertex_y_offset, half_step.z))
 		st.set_uv(Vector2(uv_end.x, uv_start.y))
 		st.add_vertex(offset + Vector3(half_step.x, half_step.y , half_step.z))
 		st.set_uv(uv_start)
 		st.add_vertex(offset + Vector3(half_step.x, half_step.y, -half_step.z))
 		st.set_uv(Vector2(uv_start.x, uv_end.y))
-		st.add_vertex (offset + Vector3(half_step.x, -half_step.y - side_scale, -half_step.z))
+		st.add_vertex (offset + Vector3(half_step.x, -half_step.y - vertex_y_offset, -half_step.z))
 		st.add_index(12)
 		st.add_index(13)
 		st.add_index(14)
@@ -300,19 +304,20 @@ func update_mesh() -> void:
 		
 		
 		offset += step_offset
-		
-		
+	
+		# End Loop
+	
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_normal(Vector3.FORWARD)
 	st.set_tangent(Plane.PLANE_XY)
 	st.set_uv(Vector2.DOWN * uv_scale)
-	st.add_vertex(size * Vector3(1.0, -1.0, -1.0))
+	st.add_vertex(half_size * Vector3(1.0, -1.0, -1.0))
 	st.set_uv(Vector2.ZERO * uv_scale)
-	st.add_vertex(size * Vector3(1.0, 1.0, -1.0))
+	st.add_vertex(half_size * Vector3(1.0, 1.0, -1.0))
 	st.set_uv(Vector2.RIGHT * uv_scale)
-	st.add_vertex(size * Vector3(-1.0, 1.0, -1.0))
+	st.add_vertex(half_size * Vector3(-1.0, 1.0, -1.0))
 	st.set_uv(Vector2.ONE * uv_scale)
-	st.add_vertex(size * Vector3(-1.0, -1.0, -1.0))
+	st.add_vertex(half_size * Vector3(-1.0, -1.0, -1.0))
 	
 	st.add_index(0)
 	st.add_index(1)
@@ -324,13 +329,13 @@ func update_mesh() -> void:
 	st.set_normal(Vector3.DOWN)
 	st.set_tangent(-Plane.PLANE_XZ)
 	st.set_uv(Vector2.DOWN * uv_scale)
-	st.add_vertex(size * Vector3(-1.0, -1.0, -1.0))
+	st.add_vertex(half_size * Vector3(-1.0, -1.0, -1.0))
 	st.set_uv(Vector2.ZERO * uv_scale)
-	st.add_vertex(size * Vector3(-1.0, -1.0, 1.0))
+	st.add_vertex(half_size * Vector3(-1.0, -1.0, 1.0))
 	st.set_uv(Vector2.RIGHT * uv_scale)
-	st.add_vertex(size * Vector3(1.0, -1.0, 1.0))
+	st.add_vertex(half_size * Vector3(1.0, -1.0, 1.0))
 	st.set_uv(Vector2.ONE * uv_scale)
-	st.add_vertex(size * Vector3(1.0, -1.0, -1.0))
+	st.add_vertex(half_size * Vector3(1.0, -1.0, -1.0))
 	
 	st.add_index(4)
 	st.add_index(5)
@@ -362,6 +367,17 @@ func get_collision_shape_vertices() -> PackedVector3Array:
 		Vector3(-size.x/2.0, -size.y/2.0, -size.z/2.0),	Vector3(-size.x/2.0, -size.y/2.0, size.z/2.0),
 	])
 
+func get_uv(vertex: Vector3, normal: Vector3) -> Vector2:
+	if normal.x > 0:
+		return Vector2(inverse_lerp(-size.z/2.0, size.z/2.0 , vertex.z), inverse_lerp(-size.y/2.0, size.y/2.0 , vertex.y),) \
+				* uv_scale * (Vector2(size.z, size.y) if triplanar_mode else Vector2.ONE)
+	if normal.y > 0:
+		return Vector2(inverse_lerp(-size.x/2.0, size.x/2.0 , vertex.x), inverse_lerp(-size.z/2.0, size.z/2.0 , vertex.z)) \
+				* uv_scale * (Vector2(size.x, size.z) if triplanar_mode else Vector2.ONE)
+	return Vector2(inverse_lerp(-size.x/2.0, size.x/2.0 , vertex.x), inverse_lerp(-size.y/2.0, size.y/2.0 , vertex.y)) \
+				* uv_scale * (Vector2(size.x, size.y) if triplanar_mode else Vector2.ONE)
+
+
 #endregion Helpers
 
 #region Setters
@@ -389,9 +405,6 @@ func set_step_count(val: int) -> void:
 func set_size(val: Vector3) -> void:
 	size = val.maxf(0.0)
 	PhysicsServer3D.shape_set_data(shape, get_collision_shape_vertices())
-	#if is_inside_tree():
-		#PhysicsServer3D.body_set_shape_transform(body, 0, global_transform)
-	
 	update_mesh()
 	update_debug_mesh()
 	resized.emit()
@@ -399,6 +412,10 @@ func set_size(val: Vector3) -> void:
 func set_material(val: Material) -> void:
 	material = val
 	apply_material()
+
+func set_triplanar_mode(val: bool) -> void:
+	triplanar_mode = val
+	update_mesh()
 
 func set_uv_scale(val: Vector2) -> void:
 	uv_scale = val

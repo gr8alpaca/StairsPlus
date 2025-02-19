@@ -47,7 +47,6 @@ func box_get_points(size: Vector3) -> PackedVector3Array:
 	return points
 
 func box_get_lines(size: Vector3) -> PackedVector3Array:
-	var half_size: Vector3 = size/2.0
 	var points: PackedVector3Array = box_get_points(size)
 	
 	var lines: PackedVector3Array
@@ -120,7 +119,7 @@ func _set_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, came
 	if plugin.is_snap_enabled():
 		r_box_size[axis] = snappedf(r_box_size[axis], plugin.get_snap_distance() / (1.0 + (9.0 * float(Input.is_key_pressed(KEY_SHIFT)))))
 	
-	r_box_size[axis] = max(r_box_size[axis], 0.001)
+	r_box_size[axis] = maxf(r_box_size[axis], 0.001)
 	
 	if Input.is_physical_key_pressed(KEY_ALT):
 		node.position = initial_transform.origin

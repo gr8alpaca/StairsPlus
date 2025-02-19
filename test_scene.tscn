@@ -83,8 +83,9 @@ environment = SubResource("Environment_coq8p")
 [node name="Stairs" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 script = ExtResource("1_uhqqe")
+step_count = 5
 material = ExtResource("3_sasra")
-triplanar_mode = false
+uv_scale = Vector2(1.02, 1)
 debug_color = Color(0, 0.6, 0.7, 0.42)
 metadata/_custom_type_script = "uid://j7i16886ncbb"
 metadata/_draw_collision_shape = true

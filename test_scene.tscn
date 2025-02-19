@@ -37,7 +37,8 @@ func _physics_process(delta: float) -> void:
 
 	# Get the input direction and handle the movement/deceleration.
 	# As good practice, you should replace UI actions with custom gameplay actions.
-	var input_dir := Input.get_vector(\"ui_left\", \"ui_right\", \"ui_up\", \"ui_down\")
+	
+	var input_dir := Vector2(float(Input.is_key_pressed(KEY_D)) - float(Input.is_key_pressed(KEY_A)), float(Input.is_key_pressed(KEY_S)) - float(Input.is_key_pressed(KEY_W)))
 	var direction := (transform.basis * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 	if direction:
 		velocity.x = direction.x * SPEED
@@ -51,14 +52,14 @@ func _physics_process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_echo() and Input.is_key_pressed(KEY_ESCAPE):
-		Input.mouse_mode = (2 if Input.mouse_mode == 2 else 0) as Input.MouseMode
+		Input.mouse_mode = Input.MouseMode.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MouseMode.MOUSE_MODE_CAPTURED else Input.MouseMode.MOUSE_MODE_CAPTURED
 	
-	if event is InputEventMouseMotion:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MouseMode.MOUSE_MODE_CAPTURED:
 		var cam: Camera3D = $Camera3D
-		event.relative /= 1000.0
+		event.relative /= -1000.0
 		rotation.y += event.relative.x * CAMERA_SENSITIVITY
 		cam.rotation.y = fmod(cam.rotation.y, PI)
-		cam.rotation.x += event.relative.y * CAMERA_SENSITIVITY
+		cam.rotation.x += event.relative.y * CAMERA_SENSITIVITY 
 		cam.rotation.x = clampf(cam.rotation.x, -PI/2.1, PI/2.1)
 		
 "
@@ -76,7 +77,7 @@ script = ExtResource("1_uhqqe")
 step_count = 6
 material = ExtResource("3_sasra")
 uv_scale = Vector2(0.25, 0.25)
-debug_color = Color(0, 0.6, 0.7, 0.584)
+debug_color = Color(0, 0.6, 0.7, 0.42)
 metadata/_custom_type_script = "uid://j7i16886ncbb"
 metadata/_draw_collision_shape = true
 

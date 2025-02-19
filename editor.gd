@@ -1,12 +1,21 @@
 @tool
 extends EditorScript
 #const BRICK_MATERIAL = preload("res://brick_material.tres")
-#const Stairs = preload("res://addons/stairs_generator/stairs.gd")
+#@export var physics_mode: PhysicsServer3D.BodyMode
+const Stairs = preload("res://addons/stairs_generator/stairs.gd")
 const FORMAT:= 34_359_738_377 
 const FORMAT2:= 34_359_742_473
 func _run() -> void:
 	print("Running...")
 	var scene:= get_scene()
+	var stairs: Stairs = scene.get_node("Stairs")
+	#var shape: Shape3D = Shape3D.new()
+	const NEW_CONVEX_POLYGON_SHAPE_3D = preload("res://new_convex_polygon_shape_3d.tres")
+	#for p in get_property_list():
+		#if p.name == "physics_mode":
+			#printt(p)
+	printt(RenderingServer.mesh_get_surface_count(stairs.mesh))
+	
 	
 	#const ARRAY_MESH: ArrayMesh = preload("res://array_mesh.tres")
 	#for i in ARRAY_MESH.get_surface_count():

@@ -116,8 +116,9 @@ func _set_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, came
 		r_box_size[axis] = ra[axis] - neg_end if sign > 0 else pos_end - ra[axis]
 	
 	var plugin: EditorPlugin = Engine.get_meta(&"stairs_generator")
+	
 	if plugin.is_snap_enabled():
-		r_box_size[axis] = snappedf(r_box_size[axis], plugin.get_snap_distance())
+		r_box_size[axis] = snappedf(r_box_size[axis], plugin.get_snap_distance() / (1.0 + (9.0 * float(Input.is_key_pressed(KEY_SHIFT)))))
 	
 	r_box_size[axis] = max(r_box_size[axis], 0.001)
 	

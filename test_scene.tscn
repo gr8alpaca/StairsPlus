@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://bnn3uy7gkvy1l"]
+[gd_scene load_steps=11 format=3 uid="uid://bnn3uy7gkvy1l"]
 
 [ext_resource type="Script" uid="uid://j7i16886ncbb" path="res://addons/stairs_generator/stairs.gd" id="1_uhqqe"]
 [ext_resource type="Material" uid="uid://coxxeyeswqtvm" path="res://brick_material.tres" id="3_sasra"]
@@ -66,6 +66,15 @@ func _unhandled_input(event: InputEvent) -> void:
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_ia1lp"]
 
+[sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_ia1lp"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_sasra"]
+size = Vector2(100, 100)
+orientation = 1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ia1lp"]
+albedo_color = Color(0.447059, 0.258824, 0.164706, 1)
+
 [node name="Node3D" type="Node3D"]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
@@ -74,23 +83,29 @@ environment = SubResource("Environment_coq8p")
 [node name="Stairs" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 script = ExtResource("1_uhqqe")
-step_count = 6
 material = ExtResource("3_sasra")
-uv_scale = Vector2(0.25, 0.25)
+triplanar_mode = false
 debug_color = Color(0, 0.6, 0.7, 0.42)
 metadata/_custom_type_script = "uid://j7i16886ncbb"
 metadata/_draw_collision_shape = true
 
-[node name="CSGBox3D2" type="CSGBox3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
-use_collision = true
-size = Vector3(10, 1, 10)
-
 [node name="CharacterBody3D" type="CharacterBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 2)
+visible = false
 script = SubResource("GDScript_ia1lp")
 
 [node name="Camera3D" type="Camera3D" parent="CharacterBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D"]
 shape = SubResource("CapsuleShape3D_ia1lp")
+
+[node name="Ground" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("WorldBoundaryShape3D_ia1lp")
+debug_fill = false
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("QuadMesh_sasra")
+surface_material_override/0 = SubResource("StandardMaterial3D_ia1lp")

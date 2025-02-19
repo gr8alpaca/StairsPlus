@@ -9,11 +9,23 @@ var size: Vector3 = Vector3.ONE: set = set_size
 @export_range(1, 32, 1, "or_greater") 
 var step_count: int = 12: set = set_step_count
 
+@export_group("Visibility")
+
 @export 
 var material: Material = StandardMaterial3D.new(): set = set_material
 
+@export
+var triplanar_mode: bool = true: set = set_triplanar_mode
+
+func set_triplanar_mode(val: bool) -> void:
+	triplanar_mode = val
+	update_mesh()
+
 @export 
 var uv_scale: Vector2 = Vector2.ONE : set = set_uv_scale
+
+@export_flags_3d_render 
+var layer_mask: int = 0xFFFFFF: set = set_render_layers
 
 
 @export_group("Physics")
@@ -21,7 +33,7 @@ var uv_scale: Vector2 = Vector2.ONE : set = set_uv_scale
 @export
 var body_mode: PhysicsServer3D.BodyMode = PhysicsServer3D.BodyMode.BODY_MODE_STATIC: set = set_body_mode
 
-@export_flags_3d_physics 
+@export_flags_3d_physics
 var collision_layers: int = 1: set = set_collision_layers
 
 @export_flags_3d_physics 
@@ -32,15 +44,6 @@ var debug_color: Color = ProjectSettings.get_setting("debug/shapes/collision/sha
 
 @export 
 var debug_fill: bool = true: set = set_debug_fill
-
-@export_group("Visibility")
-
-@export_flags_3d_render 
-var render_layers: int = 0xFFFFFF: set = set_render_layers
-
-
-#enum {FLAG_RENDER_MESH, FLAG_RENDER_COLLISION_LINES, FLAG_RENDER_COLLISION_FILL, }
-#@export_storage var render_flags: int = 0xFFFFFF
 
 var instance: RID
 var mesh: RID
@@ -90,10 +93,10 @@ func _init() -> void:
 	debug_material.vertex_color_is_srgb = true
 
 
-func apply_material() -> void:
-	var material_rid: RID = material.get_rid() if material else RID()
-	for i: int in RenderingServer.mesh_get_surface_count(mesh):
-		RenderingServer.mesh_surface_set_material(mesh, i, material_rid)
+func apply_material(mesh_rid: RID = mesh, material_to_apply: Material = material) -> void:
+	if not mesh_rid or not mesh_rid.is_valid() or not material_to_apply: return
+	for i: int in RenderingServer.mesh_get_surface_count(mesh_rid):
+		RenderingServer.mesh_surface_set_material(mesh_rid, i, material_to_apply.get_rid())
 
 func apply_debug_material() -> void:
 	var material_rid: RID = debug_material.get_rid() if debug_material else RID()
@@ -116,7 +119,9 @@ func _notification(what: int) -> void:
 				RenderingServer.instance_set_scenario(debug_instance, RID())
 		
 		NOTIFICATION_VISIBILITY_CHANGED:
-			RenderingServer.instance_set_visible(instance, visible)
+			RenderingServer.instance_set_visible(instance, is_visible_in_tree())
+			if debug_instance and debug_instance.is_valid():
+				RenderingServer.instance_set_visible(debug_instance, is_visible_in_tree())
 		
 		NOTIFICATION_PREDELETE:
 			if debug_instance and debug_instance.is_valid():
@@ -130,14 +135,14 @@ func _notification(what: int) -> void:
 			PhysicsServer3D.free_rid(body)
 		
 		NOTIFICATION_TRANSFORM_CHANGED when is_inside_tree():
-			PhysicsServer3D.body_set_shape_transform(body, 0, global_transform)
-			#for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
-				#PhysicsServer3D.body_set_shape_transform(body, shape_index, global_transform)
+			var trans: Transform3D = global_transform #.translated_local(Vector3(0.0, 0.5, 0.0) * size)
+			for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
+				PhysicsServer3D.body_set_shape_transform(body, shape_index, trans)
 				
-			RenderingServer.instance_set_transform(instance, global_transform)
+			RenderingServer.instance_set_transform(instance, trans)
 			
 			if debug_instance and debug_instance.is_valid():
-				RenderingServer.instance_set_transform(debug_instance, global_transform)
+				RenderingServer.instance_set_transform(debug_instance, trans)
 		
 		#NOTIFICATION_TRANSFORM_CHANGED:
 			#for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
@@ -146,7 +151,8 @@ func _notification(what: int) -> void:
 func update_collision_shape() -> void:
 	PhysicsServer3D.shape_set_data(shape, get_collision_shape_vertices())
 	if is_inside_tree():
-		PhysicsServer3D.body_set_shape_transform(body, 0, global_transform)
+		for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
+			PhysicsServer3D.body_set_shape_transform(body, shape_index, global_transform)
 
 
 #region Drawing
@@ -177,13 +183,11 @@ func update_debug_mesh() -> void:
 		RenderingServer.mesh_add_surface_from_arrays(debug_mesh, RenderingServer.PRIMITIVE_TRIANGLES, arr)
 	
 	# Material
-	apply_debug_material()
+	apply_material(debug_mesh, debug_material)
 
 
 func update_mesh() -> void:
 	RenderingServer.mesh_clear(mesh)
-	
-	return #TESTING
 	
 	if size.x == 0 or size.y == 0 or size.z == 0: return
 	var size: Vector3 = self.size/2.0
@@ -198,19 +202,28 @@ func update_mesh() -> void:
 	var st := SurfaceTool.new()
 	
 	for i: int in step_count:
+		var x1: float = 0.0
+		var x2: float = uv_scale.x * (size.x if triplanar_mode else 1.0)
+		
+		var y1: float = inverse_lerp(0, step_count, i) * uv_scale.y * ((size.y + size.z) / 2.0 if triplanar_mode else 1.0)
+		var y3: float = inverse_lerp(0, step_count, i + 1) * uv_scale.y * ((size.y + size.z) / 2.0 if triplanar_mode else 1.0)
+		var y2: float = lerpf(y1, y3, size.y / (size.y + size.z) if triplanar_mode else 0.5)
+		
+		var triplanar_scale:Vector2 = Vector2(size.x, size.y) if triplanar_mode else Vector2.ONE
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
 		st.set_tangent(Plane.PLANE_XY)
-		st.set_uv(uv_scale * Vector2.DOWN)
 		st.set_normal(Vector3.BACK)
+		
+		st.set_uv(Vector2(x1, y1))
 		st.add_vertex(offset + Vector3(-half_step.x, -half_step.y, half_step.z))
 		
-		st.set_uv(uv_scale * Vector2.ZERO)
+		st.set_uv(Vector2(x1, y2))
 		st.add_vertex(offset + Vector3(-half_step.x, half_step.y, half_step.z))
 		
-		st.set_uv(uv_scale * Vector2.RIGHT)
+		st.set_uv(Vector2(x2, y2))
 		st.add_vertex(offset + Vector3(half_step.x, half_step.y, half_step.z))
 		
-		st.set_uv(uv_scale * Vector2.ONE)
+		st.set_uv(Vector2(x2, y1))
 		st.add_vertex(offset + Vector3(half_step.x, -half_step.y, half_step.z))
 		st.add_index(0)
 		st.add_index(1)
@@ -219,15 +232,20 @@ func update_mesh() -> void:
 		st.add_index(3)
 		st.add_index(0)
 		
+		
 		st.set_tangent(-Plane.PLANE_XZ)
 		st.set_normal(Vector3.UP)
-		st.set_uv(uv_scale * Vector2.DOWN)
+		
+		st.set_uv(Vector2(x1, y2))
 		st.add_vertex(offset + Vector3(-half_step.x, half_step.y, half_step.z))
-		st.set_uv(uv_scale * Vector2.ZERO)
+		
+		st.set_uv(Vector2(x1, y3))
 		st.add_vertex(offset + Vector3(-half_step.x, half_step.y, -half_step.z))
-		st.set_uv(uv_scale * Vector2.RIGHT)
+		
+		st.set_uv(Vector2(x2, y3))
 		st.add_vertex(offset + Vector3(half_step.x, half_step.y, -half_step.z))
-		st.set_uv(uv_scale * Vector2.ONE)
+		
+		st.set_uv(Vector2(x2, y2))
 		st.add_vertex(offset + Vector3(half_step.x, half_step.y, half_step.z))
 		st.add_index(4)
 		st.add_index(5)
@@ -236,19 +254,20 @@ func update_mesh() -> void:
 		st.add_index(7)
 		st.add_index(4)
 		
+		var uv_start:= Vector2(inverse_lerp(0, step_count*2, i), 1.0 - inverse_lerp(0, step_count, i + 1)) * uv_scale
+		var uv_end:= Vector2(inverse_lerp(0, step_count*2, i + 1), 1.0) * uv_scale
 		var side_scale: float =  i * step_size.y
-		var uv_scale:= Vector2(step_size.z/step_size.x  , 1 + i) * uv_scale
-		# BUG Strange Shadow Banding issue on this side, other size is fine
+		
 		
 		st.set_normal(Vector3.LEFT)
 		st.set_tangent(Plane.PLANE_YZ)
-		st.set_uv(uv_scale * Vector2.DOWN)
+		st.set_uv(Vector2(uv_start.x, uv_end.y)) 
 		st.add_vertex(offset + Vector3(-half_step.x, -half_step.y - side_scale, -half_step.z))
-		st.set_uv(uv_scale * Vector2.ZERO)
+		st.set_uv(uv_start)
 		st.add_vertex(offset + Vector3(-half_step.x, half_step.y, -half_step.z))
-		st.set_uv(uv_scale * Vector2.RIGHT)
+		st.set_uv(Vector2(uv_end.x, uv_start.y))
 		st.add_vertex(offset + Vector3(-half_step.x, half_step.y , half_step.z))
-		st.set_uv(uv_scale * Vector2.ONE)
+		st.set_uv(uv_end)
 		st.add_vertex(offset + Vector3(-half_step.x, -half_step.y - side_scale, half_step.z))
 		st.add_index(8)
 		st.add_index(9)
@@ -257,15 +276,16 @@ func update_mesh() -> void:
 		st.add_index(11)
 		st.add_index(8)
 		
+		
 		st.set_normal(Vector3.RIGHT)
 		st.set_tangent(-Plane.PLANE_YZ)
-		st.set_uv(uv_scale * Vector2.ONE)
+		st.set_uv(uv_end)
 		st.add_vertex (offset + Vector3(half_step.x, -half_step.y - side_scale, half_step.z))
-		st.set_uv(uv_scale * Vector2.RIGHT)
+		st.set_uv(Vector2(uv_end.x, uv_start.y))
 		st.add_vertex(offset + Vector3(half_step.x, half_step.y , half_step.z))
-		st.set_uv(uv_scale * Vector2.ZERO)
+		st.set_uv(uv_start)
 		st.add_vertex(offset + Vector3(half_step.x, half_step.y, -half_step.z))
-		st.set_uv(uv_scale * Vector2.DOWN)
+		st.set_uv(Vector2(uv_start.x, uv_end.y))
 		st.add_vertex (offset + Vector3(half_step.x, -half_step.y - side_scale, -half_step.z))
 		st.add_index(12)
 		st.add_index(13)
@@ -285,13 +305,13 @@ func update_mesh() -> void:
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_normal(Vector3.FORWARD)
 	st.set_tangent(Plane.PLANE_XY)
-	st.set_uv(uv_scale * Vector2(0, step_count))
+	st.set_uv(Vector2.DOWN * uv_scale)
 	st.add_vertex(size * Vector3(1.0, -1.0, -1.0))
-	st.set_uv(uv_scale * Vector2.ZERO)
+	st.set_uv(Vector2.ZERO * uv_scale)
 	st.add_vertex(size * Vector3(1.0, 1.0, -1.0))
-	st.set_uv(uv_scale * Vector2.RIGHT)
+	st.set_uv(Vector2.RIGHT * uv_scale)
 	st.add_vertex(size * Vector3(-1.0, 1.0, -1.0))
-	st.set_uv(uv_scale * Vector2(1, step_count))
+	st.set_uv(Vector2.ONE * uv_scale)
 	st.add_vertex(size * Vector3(-1.0, -1.0, -1.0))
 	
 	st.add_index(0)
@@ -303,13 +323,13 @@ func update_mesh() -> void:
 	
 	st.set_normal(Vector3.DOWN)
 	st.set_tangent(-Plane.PLANE_XZ)
-	st.set_uv(uv_scale * Vector2(0, step_count))
+	st.set_uv(Vector2.DOWN * uv_scale)
 	st.add_vertex(size * Vector3(-1.0, -1.0, -1.0))
-	st.set_uv(uv_scale * Vector2.ZERO)
+	st.set_uv(Vector2.ZERO * uv_scale)
 	st.add_vertex(size * Vector3(-1.0, -1.0, 1.0))
-	st.set_uv(uv_scale * Vector2.RIGHT)
+	st.set_uv(Vector2.RIGHT * uv_scale)
 	st.add_vertex(size * Vector3(1.0, -1.0, 1.0))
-	st.set_uv(uv_scale * Vector2(1, step_count))
+	st.set_uv(Vector2.ONE * uv_scale)
 	st.add_vertex(size * Vector3(1.0, -1.0, -1.0))
 	
 	st.add_index(4)
@@ -359,8 +379,8 @@ func set_collision_mask(val: int) -> void:
 	PhysicsServer3D.body_set_collision_mask(body, val)
 
 func set_render_layers(val: int) -> void:
-	render_layers = maxi(0, val)
-	RenderingServer.instance_set_layer_mask(instance, render_layers)
+	layer_mask = maxi(0, val)
+	RenderingServer.instance_set_layer_mask(instance, layer_mask)
 
 func set_step_count(val: int) -> void:
 	step_count = maxi(1, val)

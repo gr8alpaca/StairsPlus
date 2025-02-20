@@ -110,7 +110,7 @@ func update_collision_shape() -> void:
 #region Drawing
 
 func update_debug_mesh() -> void:
-	if not debug_mesh or not debug_mesh.is_valid(): return
+	if not debug_mesh or not debug_mesh.is_valid() or not is_node_ready(): return
 	
 	RenderingServer.mesh_clear(debug_mesh)
 	
@@ -139,7 +139,7 @@ func update_debug_mesh() -> void:
 
 func update_mesh() -> void:
 	RenderingServer.mesh_clear(mesh)
-	if size.x == 0 or size.y == 0 or size.z == 0: return
+	if size.x == 0 or size.y == 0 or size.z == 0 or not is_node_ready(): return
 	var half_size: Vector3 = size/2.0
 	
 	var step_size: Vector3 = get_step_size()
@@ -311,6 +311,10 @@ func set_debug_fill(val: bool) -> void:
 
 func _notification(what: int) -> void:
 	match what:
+		NOTIFICATION_READY:
+			update_debug_mesh()
+			update_mesh()
+			
 		NOTIFICATION_ENTER_WORLD:
 			var world: World3D = get_world_3d()
 			PhysicsServer3D.body_set_space(body, world.space)
@@ -341,7 +345,7 @@ func _notification(what: int) -> void:
 			PhysicsServer3D.free_rid(body)
 		
 		NOTIFICATION_TRANSFORM_CHANGED when is_inside_tree():
-			var trans: Transform3D = global_transform #.translated_local(Vector3(0.0, 0.5, 0.0) * size)
+			var trans: Transform3D = global_transform
 			for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
 				PhysicsServer3D.body_set_shape_transform(body, shape_index, trans)
 				

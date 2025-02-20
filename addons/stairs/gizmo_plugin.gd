@@ -4,16 +4,11 @@ extends EditorNode3DGizmoPlugin
 const SETTING_SNAP_ENABLED: StringName = &"plugins/stair_generator/snap_enabled"
 const SETTING_SNAP_DISTANCE: StringName = &"plugins/stair_generator/snap_distance"
 
-const Stairs := preload("res://addons/stairs_generator/stairs.gd")
+const Stairs := preload("stairs.gd")
 
 func _init():
 	create_material("main", Color(1,0,0))
 	create_handle_material("handles")
-	EditorInterface.get_inspector().property_edited.connect(_on_property_edited)
-
-func _on_property_edited(property: StringName) -> void:
-	if EditorInterface.get_inspector().get_edited_object() is Stairs and property == &"size":
-		pass
 
 func _redraw(gizmo: EditorNode3DGizmo) -> void:
 	gizmo.clear()
@@ -114,7 +109,7 @@ func _set_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, came
 	else:
 		r_box_size[axis] = ra[axis] - neg_end if sign > 0 else pos_end - ra[axis]
 	
-	var plugin: EditorPlugin = Engine.get_meta(&"stairs_generator")
+	var plugin: EditorPlugin = Engine.get_meta(&"Stairs")
 	
 	if plugin.is_snap_enabled():
 		r_box_size[axis] = snappedf(r_box_size[axis], plugin.get_snap_distance() / (1.0 + (9.0 * float(Input.is_key_pressed(KEY_SHIFT)))))

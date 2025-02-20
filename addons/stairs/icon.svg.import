@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://xp5841s8okld"
-path="res://.godot/imported/stairs.svg-baf83683ea0630d1e7e9557845a1627b.ctex"
+uid="uid://duho8yv63v5ba"
+path="res://.godot/imported/icon.svg-609470eca5c13afa16a17b93e78eee8c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://addons/stairs_generator/stairs.svg"
-dest_files=["res://.godot/imported/stairs.svg-baf83683ea0630d1e7e9557845a1627b.ctex"]
+source_file="res://addons/stairs/icon.svg"
+dest_files=["res://.godot/imported/icon.svg-609470eca5c13afa16a17b93e78eee8c.ctex"]
 
 [params]
 

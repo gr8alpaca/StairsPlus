@@ -1,12 +1,7 @@
 @tool
 extends EditorPlugin
-#const SETTING_SNAP_ENABLED: StringName = &"plugin/stair_generator/snap_enabled"
-#const SETTING_SNAP_DISTANCE: StringName = &"plugin/stair_generator/snap_distance"
 
 var gizmo_plugin: EditorNode3DGizmoPlugin
-
-func _enable_plugin() -> void:
-	pass
 
 func _enter_tree() -> void:
 	Engine.set_meta(_get_plugin_name(), self)
@@ -18,12 +13,8 @@ func _exit_tree() -> void:
 	remove_node_3d_gizmo_plugin(gizmo_plugin)
 	Engine.set_meta(_get_plugin_name(), null)
 
-func _disable_plugin() -> void:
-	pass
-
-
 func _get_plugin_name() -> String:
-	return "stairs_generator"
+	return "Stairs"
 
 func _get_plugin_icon() -> Texture2D:
 	return preload("icon.svg")
@@ -31,7 +22,6 @@ func _get_plugin_icon() -> Texture2D:
 ## Temporary custom snap until 3D editor snap settings are [url=https://github.com/godotengine/godot/pull/96763/]exposed[/url]
 func is_snap_enabled() -> bool:
 	const BUTTON_PATH: PackedInt32Array = [1, 0, 0, 0, 14]
-	
 	return get_child_property(EditorInterface.get_editor_main_screen(), BUTTON_PATH, "button_pressed", false)
 
 func get_snap_distance() -> float:

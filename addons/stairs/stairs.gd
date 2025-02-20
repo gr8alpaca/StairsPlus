@@ -1,33 +1,29 @@
 @tool
 extends Node3D
 
-signal resized
+## Multiplier for debug mesh color alpha.
+const FILL_OPACITY_RATIO: float = 0.024 / 0.42
 
-@export
-var size: Vector3 = Vector3.ONE: set = set_size
+## Dimensions of staircase.
+@export var size: Vector3 = Vector3.ONE: set = set_size
 
 @export_range(1, 32, 1, "or_greater") 
 var step_count: int = 12: set = set_step_count
 
 @export 
-var material: Material = StandardMaterial3D.new(): set = set_material
+var material: Material: set = set_material
 
 @export_group("Visibility")
 
 @export
 var triplanar_mode: bool = true: set = set_triplanar_mode
 
-@export 
-var uv_scale: Vector2 = Vector2.ONE : set = set_uv_scale
-
 @export_flags_3d_render 
 var layer_mask: int = 0xFFFFFF: set = set_render_layers
 
-
 @export_group("Physics")
 
-@export
-var body_mode: PhysicsServer3D.BodyMode = PhysicsServer3D.BodyMode.BODY_MODE_STATIC: set = set_body_mode
+@export var body_mode: PhysicsServer3D.BodyMode = PhysicsServer3D.BodyMode.BODY_MODE_STATIC: set = set_body_mode
 
 @export_flags_3d_physics
 var collision_layers: int = 1: set = set_collision_layers
@@ -50,7 +46,7 @@ var shape: RID
 var debug_instance: RID
 var debug_mesh: RID
 var debug_material: Material
-
+var fallback_material_rid: RID
 
 func _init() -> void:
 	
@@ -59,6 +55,8 @@ func _init() -> void:
 	mesh = RenderingServer.mesh_create()
 	RenderingServer.instance_set_base(instance, mesh)
 	RenderingServer.instance_attach_object_instance_id(instance, get_instance_id())
+	
+	fallback_material_rid = RenderingServer.material_create()
 	
 	# Init Physics RIDs
 	body = PhysicsServer3D.body_create()
@@ -82,36 +80,23 @@ func _init() -> void:
 	RenderingServer.instance_attach_object_instance_id(debug_instance, get_instance_id())
 	
 	debug_material = StandardMaterial3D.new()
-	debug_material.render_priority = -127
+	debug_material.render_priority = 10
 	debug_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	debug_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	debug_material.disable_fog = true
 	debug_material.vertex_color_use_as_albedo = true
 	debug_material.vertex_color_is_srgb = true
 
-
-func apply_material(mesh_rid: RID = mesh, material_to_apply: Material = material) -> void:
-	if not mesh_rid or not mesh_rid.is_valid() or not material_to_apply: return
-	for i: int in RenderingServer.mesh_get_surface_count(mesh_rid):
-		RenderingServer.mesh_surface_set_material(mesh_rid, i, material_to_apply.get_rid())
-
-func apply_debug_material() -> void:
-	var material_rid: RID = debug_material.get_rid() if debug_material else RID()
-	for i : int in RenderingServer.mesh_get_surface_count(debug_mesh):
-		RenderingServer.mesh_surface_set_material(debug_mesh, i, material_rid)
-
 func update_collision_shape() -> void:
 	PhysicsServer3D.shape_set_data(shape, get_collision_shape_vertices())
-	if is_inside_tree():
-		for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
-			PhysicsServer3D.body_set_shape_transform(body, shape_index, global_transform)
+	#if is_inside_tree():
+		#for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
+			#PhysicsServer3D.body_set_shape_transform(body, shape_index, global_transform)
 
-
-#region Drawing
+#region Mesh Generation
 
 func update_debug_mesh() -> void:
 	if not debug_mesh or not debug_mesh.is_valid() or not is_node_ready(): return
-	
 	RenderingServer.mesh_clear(debug_mesh)
 	
 	# Draw Lines
@@ -129,17 +114,23 @@ func update_debug_mesh() -> void:
 	
 	# Draw Fill
 	if debug_fill:
-		const FILL_OPACITY_RATIO: float = 0.024 / 0.42
-		arr[Mesh.ARRAY_COLOR].fill(Color(debug_color, debug_color.a * FILL_OPACITY_RATIO))
+		
+		arr[Mesh.ARRAY_COLOR].fill(Color(debug_color, debug_color.a * 0.024 / 0.42))
 		arr[Mesh.ARRAY_INDEX] = PackedInt32Array([1, 0, 2, 1, 2, 4, 2, 0, 3, 2, 3, 5, 3, 0, 1, 3, 1, 4, 3, 4, 5, 4, 2, 5])
 		RenderingServer.mesh_add_surface_from_arrays(debug_mesh, RenderingServer.PRIMITIVE_TRIANGLES, arr)
 	
 	# Material
 	apply_material(debug_mesh, debug_material)
 
+
+
 func update_mesh() -> void:
+	if not is_node_ready(): return
+	
 	RenderingServer.mesh_clear(mesh)
-	if size.x == 0 or size.y == 0 or size.z == 0 or not is_node_ready(): return
+	if size.x == 0 or size.y == 0 or size.z == 0: return
+	
+	const STEP_VERTEX_COUNT: int = 16
 	var half_size: Vector3 = size/2.0
 	
 	var step_size: Vector3 = get_step_size()
@@ -151,6 +142,7 @@ func update_mesh() -> void:
 	var st := SurfaceTool.new()
 	
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	
 	
 	for i: int in step_count:
 		
@@ -165,7 +157,6 @@ func update_mesh() -> void:
 		
 		st.set_tangent(-Plane.PLANE_XZ)
 		st.set_normal(Vector3.UP)
-		
 		add_surface_vertex(st, offset + Vector3(-half_step.x, half_step.y, half_step.z), Vector3.ZERO)
 		add_surface_vertex(st, offset + Vector3(-half_step.x, half_step.y, -half_step.z), Vector3.ZERO)
 		add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y, -half_step.z), Vector3.ZERO)
@@ -189,7 +180,7 @@ func update_mesh() -> void:
 		add_surface_vertex(st, offset + Vector3(half_step.x, -half_step.y - (i * step_size.y), -half_step.z), Vector3.RIGHT)
 		
 		for idx: int in [0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4, 8, 9, 10, 10, 11, 8, 12, 13, 14, 14, 15, 12]:
-			st.add_index(i*16 + idx)
+			st.add_index(i * STEP_VERTEX_COUNT + idx)
 		
 		offset += step_offset
 		
@@ -213,14 +204,20 @@ func update_mesh() -> void:
 	add_surface_vertex(st, half_size * Vector3(1.0, -1.0, -1.0), Vector3.DOWN)
 	
 	for idx: int in [0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4,]:
-		st.add_index(step_count*16 + idx)
+		st.add_index(step_count * STEP_VERTEX_COUNT + idx)
+	
+	st.optimize_indices_for_cache()
 	
 	RenderingServer.mesh_add_surface_from_arrays(mesh, RenderingServer.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
 	apply_material()
 
-#endregion Drawing
+func apply_material(mesh_rid: RID = mesh, material_to_apply: Material = material) -> void:
+	if not mesh_rid or not mesh_rid.is_valid(): return
+	var material_rid: RID = material_to_apply.get_rid() if material_to_apply else fallback_material_rid
+	for i: int in RenderingServer.mesh_get_surface_count(mesh_rid):
+		RenderingServer.mesh_surface_set_material(mesh_rid, i, material_rid)
 
-#region Helpers
+#endregion Mesh Generation
 
 func get_step_height() -> float:
 	return size.y / float(step_count)
@@ -239,24 +236,22 @@ func get_collision_shape_vertices() -> PackedVector3Array:
 	])
 
 func get_uv(vertex: Vector3, normal: Vector3) -> Vector2:
-	if not normal:
+	if not normal: # To be used only by stair mesh
 		const STAIR_MESH_UV_SCALE: Vector2 = Vector2(1.0, 2.0)
 		return Vector2(inverse_lerp(-size.x/2.0, size.x/2.0 , vertex.x), inverse_lerp(-(size.y  + size.z)/2.0, (size.y  + size.z)/2.0, vertex.y + vertex.z)) \
-				* uv_scale * STAIR_MESH_UV_SCALE * (Vector2(size.x, (size.y + size.z) / 2.0 ) if triplanar_mode else Vector2.ONE)
+				* STAIR_MESH_UV_SCALE * (Vector2(size.x, (size.y + size.z) / 2.0 ) if triplanar_mode else Vector2.ONE)
 	if normal.x != 0.0:
 		return Vector2(inverse_lerp(-size.z/2.0, size.z/2.0 , vertex.z), inverse_lerp(-size.y/2.0, size.y/2.0 , vertex.y),) \
-				* uv_scale * (Vector2(size.z, size.y) if triplanar_mode else Vector2.ONE)
+				* (Vector2(size.z, size.y) if triplanar_mode else Vector2.ONE)
 	if normal.y != 0.0:
 		return Vector2(inverse_lerp(-size.x/2.0, size.x/2.0 , vertex.x), inverse_lerp(-size.z/2.0, size.z/2.0 , vertex.z)) \
-				* uv_scale * (Vector2(size.x, size.z) if triplanar_mode else Vector2.ONE)
+				* (Vector2(size.x, size.z) if triplanar_mode else Vector2.ONE)
 	return Vector2(inverse_lerp(-size.x/2.0, size.x/2.0 , vertex.x), inverse_lerp(-size.y/2.0, size.y/2.0 , vertex.y)) \
-				* uv_scale * (Vector2(size.x, size.y) if triplanar_mode else Vector2.ONE)
+				* (Vector2(size.x, size.y) if triplanar_mode else Vector2.ONE)
 
 func add_surface_vertex(st: SurfaceTool, vertex: Vector3, normal: Vector3) -> void:
 	st.set_uv(get_uv(vertex, normal))
 	st.add_vertex(vertex)
-
-#endregion Helpers
 
 #region Setters
 
@@ -285,7 +280,7 @@ func set_size(val: Vector3) -> void:
 	PhysicsServer3D.shape_set_data(shape, get_collision_shape_vertices())
 	update_mesh()
 	update_debug_mesh()
-	resized.emit()
+	update_gizmos()
 
 func set_material(val: Material) -> void:
 	material = val
@@ -293,10 +288,6 @@ func set_material(val: Material) -> void:
 
 func set_triplanar_mode(val: bool) -> void:
 	triplanar_mode = val
-	update_mesh()
-
-func set_uv_scale(val: Vector2) -> void:
-	uv_scale = val
 	update_mesh()
 
 func set_debug_color(val: Color) -> void:
@@ -339,22 +330,21 @@ func _notification(what: int) -> void:
 			if debug_mesh and debug_mesh.is_valid():
 				RenderingServer.free_rid(debug_mesh)
 			
-			RenderingServer.mesh_clear(mesh)
+			RenderingServer.free_rid(fallback_material_rid)
 			RenderingServer.free_rid(mesh)
 			RenderingServer.free_rid(instance)
 			PhysicsServer3D.free_rid(body)
 		
 		NOTIFICATION_TRANSFORM_CHANGED when is_inside_tree():
-			var trans: Transform3D = global_transform
 			for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
-				PhysicsServer3D.body_set_shape_transform(body, shape_index, trans)
+				PhysicsServer3D.body_set_shape_transform(body, shape_index, global_transform)
 				
-			RenderingServer.instance_set_transform(instance, trans)
+			RenderingServer.instance_set_transform(instance, global_transform)
 			
 			if debug_instance and debug_instance.is_valid():
-				RenderingServer.instance_set_transform(debug_instance, trans)
+				RenderingServer.instance_set_transform(debug_instance, global_transform)
 
 
-func _validate_property(property: Dictionary) -> void:
-	match property.name:
-		&"body_mode":		property.hint_string = property.hint_string.replacen("Body Mode ", "")
+#func _validate_property(property: Dictionary) -> void:
+	#match property.name:
+		#&"body_mode":		property.hint_string = property.hint_string.replacen("Body Mode ", "")

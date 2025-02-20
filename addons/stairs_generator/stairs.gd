@@ -9,14 +9,13 @@ var size: Vector3 = Vector3.ONE: set = set_size
 @export_range(1, 32, 1, "or_greater") 
 var step_count: int = 12: set = set_step_count
 
-@export_group("Visibility")
-
 @export 
 var material: Material = StandardMaterial3D.new(): set = set_material
 
-@export
-var triplanar_mode: bool = false: set = set_triplanar_mode
+@export_group("Visibility")
 
+@export
+var triplanar_mode: bool = true: set = set_triplanar_mode
 
 @export 
 var uv_scale: Vector2 = Vector2.ONE : set = set_uv_scale
@@ -37,7 +36,7 @@ var collision_layers: int = 1: set = set_collision_layers
 var collision_mask: int = 1: set = set_collision_mask
 
 @export 
-var debug_color: Color = ProjectSettings.get_setting("debug/shapes/collision/shape_color", Color(0.0, 0.6, 0.7, 0.42)) : set = set_debug_color
+var debug_color: Color = Color(0.0, 0.6, 0.7, 0.42): set = set_debug_color
 
 @export 
 var debug_fill: bool = true: set = set_debug_fill
@@ -54,6 +53,7 @@ var debug_material: Material
 
 
 func _init() -> void:
+	
 	# Init Visual Instance and Mesh RIDs
 	instance = RenderingServer.instance_create()
 	mesh = RenderingServer.mesh_create()
@@ -100,51 +100,6 @@ func apply_debug_material() -> void:
 	for i : int in RenderingServer.mesh_get_surface_count(debug_mesh):
 		RenderingServer.mesh_surface_set_material(debug_mesh, i, material_rid)
 
-func _notification(what: int) -> void:
-	match what:
-		NOTIFICATION_ENTER_WORLD:
-			var world: World3D = get_world_3d()
-			PhysicsServer3D.body_set_space(body, world.space)
-			RenderingServer.instance_set_scenario(instance, world.scenario)
-			if debug_instance and debug_instance.is_valid():
-				RenderingServer.instance_set_scenario(debug_instance, world.scenario)
-		
-		NOTIFICATION_EXIT_WORLD:
-			PhysicsServer3D.body_set_space(body, RID())
-			RenderingServer.instance_set_scenario(instance, RID())
-			if debug_instance and debug_instance.is_valid():
-				RenderingServer.instance_set_scenario(debug_instance, RID())
-		
-		NOTIFICATION_VISIBILITY_CHANGED:
-			RenderingServer.instance_set_visible(instance, is_visible_in_tree())
-			if debug_instance and debug_instance.is_valid():
-				RenderingServer.instance_set_visible(debug_instance, is_visible_in_tree())
-		
-		NOTIFICATION_PREDELETE:
-			if debug_instance and debug_instance.is_valid():
-				RenderingServer.free_rid(debug_instance)
-			if debug_mesh and debug_mesh.is_valid():
-				RenderingServer.free_rid(debug_mesh)
-			
-			RenderingServer.mesh_clear(mesh)
-			RenderingServer.free_rid(mesh)
-			RenderingServer.free_rid(instance)
-			PhysicsServer3D.free_rid(body)
-		
-		NOTIFICATION_TRANSFORM_CHANGED when is_inside_tree():
-			var trans: Transform3D = global_transform #.translated_local(Vector3(0.0, 0.5, 0.0) * size)
-			for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
-				PhysicsServer3D.body_set_shape_transform(body, shape_index, trans)
-				
-			RenderingServer.instance_set_transform(instance, trans)
-			
-			if debug_instance and debug_instance.is_valid():
-				RenderingServer.instance_set_transform(debug_instance, trans)
-		
-		#NOTIFICATION_TRANSFORM_CHANGED:
-			#for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
-				#PhysicsServer3D.body_set_shape_transform(body, shape_index, global_transform)
-
 func update_collision_shape() -> void:
 	PhysicsServer3D.shape_set_data(shape, get_collision_shape_vertices())
 	if is_inside_tree():
@@ -182,7 +137,6 @@ func update_debug_mesh() -> void:
 	# Material
 	apply_material(debug_mesh, debug_material)
 
-
 func update_mesh() -> void:
 	RenderingServer.mesh_clear(mesh)
 	if size.x == 0 or size.y == 0 or size.z == 0: return
@@ -194,155 +148,72 @@ func update_mesh() -> void:
 	var offset: Vector3 = Vector3(0.0, -half_size.y, half_size.z) * float(step_count-1) / float(step_count)
 	var step_offset: Vector3 = Vector3(0.0, step_size.y, -step_size.z)
 	
-	var scalar: Vector2 = uv_scale * Vector2(size.x, size.y + size.z) if triplanar_mode else uv_scale
 	var st := SurfaceTool.new()
 	
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	
 	for i: int in step_count:
 		
-		var x1: float = 0.0
-		var x2: float = scalar.x
-		
-		var y1: float = inverse_lerp(0, step_count, i) * scalar.y
-		var y3: float = inverse_lerp(0, step_count, i + 1) * scalar.y
-		var y2: float = lerpf(y1, y3, size.y / (size.y + size.z) if triplanar_mode else 0.5)
-		
-		st.begin(Mesh.PRIMITIVE_TRIANGLES)
 		st.set_tangent(Plane.PLANE_XY)
 		st.set_normal(Vector3.BACK)
 		
-		st.set_uv(Vector2(x1, y1))
-		st.add_vertex(offset + Vector3(-half_step.x, -half_step.y, half_step.z))
-		
-		st.set_uv(Vector2(x1, y2))
-		st.add_vertex(offset + Vector3(-half_step.x, half_step.y, half_step.z))
-		
-		st.set_uv(Vector2(x2, y2))
-		st.add_vertex(offset + Vector3(half_step.x, half_step.y, half_step.z))
-		
-		st.set_uv(Vector2(x2, y1))
-		st.add_vertex(offset + Vector3(half_step.x, -half_step.y, half_step.z))
-		st.add_index(0)
-		st.add_index(1)
-		st.add_index(2)
-		st.add_index(2)
-		st.add_index(3)
-		st.add_index(0)
+		add_surface_vertex(st, offset + Vector3(-half_step.x, -half_step.y, half_step.z), Vector3.ZERO)
+		add_surface_vertex(st, offset + Vector3(-half_step.x, half_step.y, half_step.z), Vector3.ZERO)
+		add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y, half_step.z), Vector3.ZERO)
+		add_surface_vertex(st, offset + Vector3(half_step.x, -half_step.y, half_step.z), Vector3.ZERO)
 		
 		
 		st.set_tangent(-Plane.PLANE_XZ)
 		st.set_normal(Vector3.UP)
 		
-		st.set_uv(Vector2(x1, y2))
-		st.add_vertex(offset + Vector3(-half_step.x, half_step.y, half_step.z))
+		add_surface_vertex(st, offset + Vector3(-half_step.x, half_step.y, half_step.z), Vector3.ZERO)
+		add_surface_vertex(st, offset + Vector3(-half_step.x, half_step.y, -half_step.z), Vector3.ZERO)
+		add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y, -half_step.z), Vector3.ZERO)
+		add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y, half_step.z), Vector3.ZERO)
 		
-		st.set_uv(Vector2(x1, y3))
-		st.add_vertex(offset + Vector3(-half_step.x, half_step.y, -half_step.z))
-		
-		st.set_uv(Vector2(x2, y3))
-		st.add_vertex(offset + Vector3(half_step.x, half_step.y, -half_step.z))
-		
-		st.set_uv(Vector2(x2, y2))
-		st.add_vertex(offset + Vector3(half_step.x, half_step.y, half_step.z))
-		st.add_index(4)
-		st.add_index(5)
-		st.add_index(6)
-		st.add_index(6)
-		st.add_index(7)
-		st.add_index(4)
-		
-		#var uv_delta: Vector2()
-		var side_scalar:= Vector2(uv_scale.x * size.z if triplanar_mode else uv_scale.x, uv_scale.y * size.y if triplanar_mode else uv_scale.y)
-		var uv_start:= Vector2(inverse_lerp(0, step_count, i), 1.0 - inverse_lerp(0, step_count, i + 1)) * side_scalar
-		var uv_end:= Vector2(inverse_lerp(0, step_count, i + 1), 1.0) * side_scalar
-		var vertex_y_offset: float =  i * step_size.y
-		
-		# TESTING
 		
 		st.set_normal(Vector3.LEFT)
 		st.set_tangent(Plane.PLANE_YZ)
-		st.set_uv(get_uv(offset + Vector3(-half_step.x, -half_step.y - vertex_y_offset, -half_step.z), Vector3.LEFT))
-		st.add_vertex(offset + Vector3(-half_step.x, -half_step.y - vertex_y_offset, -half_step.z))
-		
-		st.set_uv(get_uv(offset + Vector3(-half_step.x, half_step.y, -half_step.z), Vector3.LEFT))
-		st.add_vertex(offset + Vector3(-half_step.x, half_step.y, -half_step.z))
-		
-		st.set_uv(get_uv(offset + Vector3(-half_step.x, half_step.y , half_step.z), Vector3.LEFT))
-		st.add_vertex(offset + Vector3(-half_step.x, half_step.y , half_step.z))
-		
-		st.set_uv(get_uv(offset + Vector3(-half_step.x, -half_step.y - vertex_y_offset, half_step.z), Vector3.LEFT))
-		st.add_vertex(offset + Vector3(-half_step.x, -half_step.y - vertex_y_offset, half_step.z))
-		
-		st.add_index(8)
-		st.add_index(9)
-		st.add_index(10)
-		st.add_index(10)
-		st.add_index(11)
-		st.add_index(8)
+		add_surface_vertex(st, offset + Vector3(-half_step.x, -half_step.y - (i * step_size.y), -half_step.z), Vector3.LEFT)
+		add_surface_vertex(st, offset + Vector3(-half_step.x, half_step.y, -half_step.z), Vector3.LEFT)
+		add_surface_vertex(st, offset + Vector3(-half_step.x, half_step.y , half_step.z), Vector3.LEFT)
+		add_surface_vertex(st, offset + Vector3(-half_step.x, -half_step.y - (i * step_size.y), half_step.z), Vector3.LEFT)
 		
 		
 		st.set_normal(Vector3.RIGHT)
 		st.set_tangent(-Plane.PLANE_YZ)
-		st.set_uv(uv_end)
-		st.add_vertex (offset + Vector3(half_step.x, -half_step.y - vertex_y_offset, half_step.z))
-		st.set_uv(Vector2(uv_end.x, uv_start.y))
-		st.add_vertex(offset + Vector3(half_step.x, half_step.y , half_step.z))
-		st.set_uv(uv_start)
-		st.add_vertex(offset + Vector3(half_step.x, half_step.y, -half_step.z))
-		st.set_uv(Vector2(uv_start.x, uv_end.y))
-		st.add_vertex (offset + Vector3(half_step.x, -half_step.y - vertex_y_offset, -half_step.z))
-		st.add_index(12)
-		st.add_index(13)
-		st.add_index(14)
-		st.add_index(14)
-		st.add_index(15)
-		st.add_index(12)
 		
-		RenderingServer.mesh_add_surface_from_arrays(mesh, RenderingServer.PRIMITIVE_TRIANGLES, st.commit_to_arrays() )
-		st.clear()
+		add_surface_vertex(st, offset + Vector3(half_step.x, -half_step.y - (i * step_size.y), half_step.z), Vector3.RIGHT)
+		add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y , half_step.z), Vector3.RIGHT)
+		add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y, -half_step.z), Vector3.RIGHT)
+		add_surface_vertex(st, offset + Vector3(half_step.x, -half_step.y - (i * step_size.y), -half_step.z), Vector3.RIGHT)
 		
-		
+		for idx: int in [0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4, 8, 9, 10, 10, 11, 8, 12, 13, 14, 14, 15, 12]:
+			st.add_index(i*16 + idx)
 		
 		offset += step_offset
-	
+		
 		# End Loop
 	
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_normal(Vector3.FORWARD)
 	st.set_tangent(Plane.PLANE_XY)
-	st.set_uv(Vector2.DOWN * uv_scale)
-	st.add_vertex(half_size * Vector3(1.0, -1.0, -1.0))
-	st.set_uv(Vector2.ZERO * uv_scale)
-	st.add_vertex(half_size * Vector3(1.0, 1.0, -1.0))
-	st.set_uv(Vector2.RIGHT * uv_scale)
-	st.add_vertex(half_size * Vector3(-1.0, 1.0, -1.0))
-	st.set_uv(Vector2.ONE * uv_scale)
-	st.add_vertex(half_size * Vector3(-1.0, -1.0, -1.0))
 	
-	st.add_index(0)
-	st.add_index(1)
-	st.add_index(2)
-	st.add_index(2)
-	st.add_index(3)
-	st.add_index(0)
+	add_surface_vertex(st, half_size * Vector3(1.0, -1.0, -1.0), Vector3.FORWARD)
+	add_surface_vertex(st, half_size * Vector3(1.0, 1.0, -1.0), Vector3.FORWARD)
+	add_surface_vertex(st, half_size * Vector3(-1.0, 1.0, -1.0), Vector3.FORWARD)
+	add_surface_vertex(st, half_size * Vector3(-1.0, -1.0, -1.0), Vector3.FORWARD)
+	
 	
 	st.set_normal(Vector3.DOWN)
 	st.set_tangent(-Plane.PLANE_XZ)
-	st.set_uv(Vector2.DOWN * uv_scale)
-	st.add_vertex(half_size * Vector3(-1.0, -1.0, -1.0))
-	st.set_uv(Vector2.ZERO * uv_scale)
-	st.add_vertex(half_size * Vector3(-1.0, -1.0, 1.0))
-	st.set_uv(Vector2.RIGHT * uv_scale)
-	st.add_vertex(half_size * Vector3(1.0, -1.0, 1.0))
-	st.set_uv(Vector2.ONE * uv_scale)
-	st.add_vertex(half_size * Vector3(1.0, -1.0, -1.0))
 	
-	st.add_index(4)
-	st.add_index(5)
-	st.add_index(6)
-	st.add_index(6)
-	st.add_index(7)
-	st.add_index(4)
+	add_surface_vertex(st, half_size * Vector3(-1.0, -1.0, -1.0), Vector3.DOWN)
+	add_surface_vertex(st, half_size * Vector3(-1.0, -1.0, 1.0), Vector3.DOWN)
+	add_surface_vertex(st, half_size * Vector3(1.0, -1.0, 1.0), Vector3.DOWN)
+	add_surface_vertex(st, half_size * Vector3(1.0, -1.0, -1.0), Vector3.DOWN)
+	
+	for idx: int in [0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4,]:
+		st.add_index(step_count*16 + idx)
 	
 	RenderingServer.mesh_add_surface_from_arrays(mesh, RenderingServer.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
 	apply_material()
@@ -368,15 +239,22 @@ func get_collision_shape_vertices() -> PackedVector3Array:
 	])
 
 func get_uv(vertex: Vector3, normal: Vector3) -> Vector2:
-	if normal.x > 0:
+	if not normal:
+		const STAIR_MESH_UV_SCALE: Vector2 = Vector2(1.0, 2.0)
+		return Vector2(inverse_lerp(-size.x/2.0, size.x/2.0 , vertex.x), inverse_lerp(-(size.y  + size.z)/2.0, (size.y  + size.z)/2.0, vertex.y + vertex.z)) \
+				* uv_scale * STAIR_MESH_UV_SCALE * (Vector2(size.x, (size.y + size.z) / 2.0 ) if triplanar_mode else Vector2.ONE)
+	if normal.x != 0.0:
 		return Vector2(inverse_lerp(-size.z/2.0, size.z/2.0 , vertex.z), inverse_lerp(-size.y/2.0, size.y/2.0 , vertex.y),) \
 				* uv_scale * (Vector2(size.z, size.y) if triplanar_mode else Vector2.ONE)
-	if normal.y > 0:
+	if normal.y != 0.0:
 		return Vector2(inverse_lerp(-size.x/2.0, size.x/2.0 , vertex.x), inverse_lerp(-size.z/2.0, size.z/2.0 , vertex.z)) \
 				* uv_scale * (Vector2(size.x, size.z) if triplanar_mode else Vector2.ONE)
 	return Vector2(inverse_lerp(-size.x/2.0, size.x/2.0 , vertex.x), inverse_lerp(-size.y/2.0, size.y/2.0 , vertex.y)) \
 				* uv_scale * (Vector2(size.x, size.y) if triplanar_mode else Vector2.ONE)
 
+func add_surface_vertex(st: SurfaceTool, vertex: Vector3, normal: Vector3) -> void:
+	st.set_uv(get_uv(vertex, normal))
+	st.add_vertex(vertex)
 
 #endregion Helpers
 
@@ -430,6 +308,47 @@ func set_debug_fill(val: bool) -> void:
 	update_debug_mesh()
 
 #endregion
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_ENTER_WORLD:
+			var world: World3D = get_world_3d()
+			PhysicsServer3D.body_set_space(body, world.space)
+			RenderingServer.instance_set_scenario(instance, world.scenario)
+			if debug_instance and debug_instance.is_valid():
+				RenderingServer.instance_set_scenario(debug_instance, world.scenario)
+		
+		NOTIFICATION_EXIT_WORLD:
+			PhysicsServer3D.body_set_space(body, RID())
+			RenderingServer.instance_set_scenario(instance, RID())
+			if debug_instance and debug_instance.is_valid():
+				RenderingServer.instance_set_scenario(debug_instance, RID())
+		
+		NOTIFICATION_VISIBILITY_CHANGED:
+			RenderingServer.instance_set_visible(instance, is_visible_in_tree())
+			if debug_instance and debug_instance.is_valid():
+				RenderingServer.instance_set_visible(debug_instance, is_visible_in_tree())
+		
+		NOTIFICATION_PREDELETE:
+			if debug_instance and debug_instance.is_valid():
+				RenderingServer.free_rid(debug_instance)
+			if debug_mesh and debug_mesh.is_valid():
+				RenderingServer.free_rid(debug_mesh)
+			
+			RenderingServer.mesh_clear(mesh)
+			RenderingServer.free_rid(mesh)
+			RenderingServer.free_rid(instance)
+			PhysicsServer3D.free_rid(body)
+		
+		NOTIFICATION_TRANSFORM_CHANGED when is_inside_tree():
+			var trans: Transform3D = global_transform #.translated_local(Vector3(0.0, 0.5, 0.0) * size)
+			for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
+				PhysicsServer3D.body_set_shape_transform(body, shape_index, trans)
+				
+			RenderingServer.instance_set_transform(instance, trans)
+			
+			if debug_instance and debug_instance.is_valid():
+				RenderingServer.instance_set_transform(debug_instance, trans)
 
 
 func _validate_property(property: Dictionary) -> void:

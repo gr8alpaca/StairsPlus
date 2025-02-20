@@ -10,7 +10,7 @@ const FILL_OPACITY_RATIO: float = 0.024 / 0.42
 @export_range(1, 32, 1, "or_greater") 
 var step_count: int = 12: set = set_step_count
 
-@export 
+@export_custom(17, "BaseMaterial3D,ShaderMaterial", PROPERTY_USAGE_DEFAULT)
 var material: Material: set = set_material
 
 @export_group("Visibility")
@@ -22,14 +22,22 @@ var triplanar_mode: bool = true: set = set_triplanar_mode
 var layer_mask: int = 0xFFFFFF: set = set_render_layers
 
 @export_group("Physics")
+@export var physics_disabled: bool = false: set = set_physics_disabled
 
 @export var body_mode: PhysicsServer3D.BodyMode = PhysicsServer3D.BodyMode.BODY_MODE_STATIC: set = set_body_mode
+
+@export_subgroup("Collision")
 
 @export_flags_3d_physics
 var collision_layers: int = 1: set = set_collision_layers
 
 @export_flags_3d_physics 
 var collision_mask: int = 1: set = set_collision_mask
+
+@export_subgroup("Debug")
+
+@export
+var debug_visible: bool = true: set = set_debug_visible
 
 @export 
 var debug_color: Color = Color(0.0, 0.6, 0.7, 0.42): set = set_debug_color
@@ -45,6 +53,7 @@ var shape: RID
 
 var debug_instance: RID
 var debug_mesh: RID
+
 var debug_material: Material
 var fallback_material_rid: RID
 
@@ -73,7 +82,6 @@ func _init() -> void:
 	if not Engine.is_editor_hint() and not (OS.is_debug_build() and Engine.get_main_loop().debug_collisions_hint):
 		return
 	
-	# Init Physics Shape Debug
 	debug_instance = RenderingServer.instance_create()
 	debug_mesh = RenderingServer.mesh_create()
 	RenderingServer.instance_set_base(debug_instance, debug_mesh)
@@ -87,17 +95,20 @@ func _init() -> void:
 	debug_material.vertex_color_use_as_albedo = true
 	debug_material.vertex_color_is_srgb = true
 
+
+
 func update_collision_shape() -> void:
 	PhysicsServer3D.shape_set_data(shape, get_collision_shape_vertices())
-	#if is_inside_tree():
-		#for shape_index: int in PhysicsServer3D.body_get_shape_count(body):
-			#PhysicsServer3D.body_set_shape_transform(body, shape_index, global_transform)
+
 
 #region Mesh Generation
 
 func update_debug_mesh() -> void:
 	if not debug_mesh or not debug_mesh.is_valid() or not is_node_ready(): return
+	
 	RenderingServer.mesh_clear(debug_mesh)
+	
+	if not debug_visible or physics_disabled: return
 	
 	# Draw Lines
 	var arr: Array = []
@@ -298,7 +309,20 @@ func set_debug_fill(val: bool) -> void:
 	debug_fill = val
 	update_debug_mesh()
 
+func set_physics_disabled(val: bool) -> void:
+	physics_disabled = val
+	for i: int in PhysicsServer3D.body_get_shape_count(body):
+		PhysicsServer3D.body_set_shape_disabled(body, i, physics_disabled)
+	update_debug_mesh()
+
+func set_debug_visible(val: bool) -> void:
+	debug_visible = val
+	if debug_instance and debug_instance.is_valid():
+		RenderingServer.instance_set_visible(debug_instance, debug_visible)
+
+
 #endregion
+
 
 func _notification(what: int) -> void:
 	match what:
@@ -321,10 +345,11 @@ func _notification(what: int) -> void:
 		
 		NOTIFICATION_VISIBILITY_CHANGED:
 			RenderingServer.instance_set_visible(instance, is_visible_in_tree())
-			if debug_instance and debug_instance.is_valid():
+			if debug_visible and debug_instance and debug_instance.is_valid():
 				RenderingServer.instance_set_visible(debug_instance, is_visible_in_tree())
 		
 		NOTIFICATION_PREDELETE:
+			
 			if debug_instance and debug_instance.is_valid():
 				RenderingServer.free_rid(debug_instance)
 			if debug_mesh and debug_mesh.is_valid():
@@ -343,8 +368,3 @@ func _notification(what: int) -> void:
 			
 			if debug_instance and debug_instance.is_valid():
 				RenderingServer.instance_set_transform(debug_instance, global_transform)
-
-
-#func _validate_property(property: Dictionary) -> void:
-	#match property.name:
-		#&"body_mode":		property.hint_string = property.hint_string.replacen("Body Mode ", "")

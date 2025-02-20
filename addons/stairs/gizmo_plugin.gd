@@ -37,7 +37,6 @@ func box_get_points(size: Vector3) -> PackedVector3Array:
 
 func box_get_lines(size: Vector3) -> PackedVector3Array:
 	var points: PackedVector3Array = box_get_points(size)
-	
 	var lines: PackedVector3Array
 	for i: int in points.size():
 		for j: int in points.size() - (i + 1):
@@ -45,7 +44,6 @@ func box_get_lines(size: Vector3) -> PackedVector3Array:
 			if int(points[i][0] == points[i + j][0])  + int(points[i][1] == points[i + j][1]) + int(points[i][2] == points[i + j][2]) == 2:
 				lines.push_back(points[i])
 				lines.push_back(points[i + j])
-	
 	return lines 
 
 func get_segment(camera: Camera3D, screen_pos: Vector2, initial_transform: Transform3D) -> PackedVector3Array:
@@ -61,14 +59,11 @@ func get_segment(camera: Camera3D, screen_pos: Vector2, initial_transform: Trans
 	return segment
 
 func box_get_handles(size: Vector3) -> PackedVector3Array:
-	var handles: PackedVector3Array
-	for i: int in 3:
-		var ax: Vector3 = Vector3()
-		ax[i] = size[i] / 2.0
-		handles.push_back(ax)
-		handles.push_back(-ax)
-	
-	return handles
+	return PackedVector3Array([
+		Vector3(size.x/2.0, 0.0, 0.0), Vector3(-size.x/2.0, 0.0, 0.0),
+		Vector3(0.0, size.y/2.0, 0.0), Vector3(0.0, -size.y/2.0, 0.0), 
+		Vector3(0.0, 0.0, size.z/2.0), Vector3(0.0, 0.0, -size.z/2.0),
+	])
 
 func _get_handle_name(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool) -> String:
 	match handle_id:
@@ -125,11 +120,10 @@ func _set_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, came
 
 func _commit_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, restore: Variant, cancel: bool) -> void:
 	var node: Stairs = gizmo.get_node_3d()
-	var restore_position: Vector3 = gizmo.get_meta(&"initial_position")
 	
 	if cancel:
 		node.size = restore
-		node.position = restore_position
+		node.position = gizmo.get_meta(&"initial_position")
 		return
 	
 	var ur : EditorUndoRedoManager = EditorInterface.get_editor_undo_redo()
@@ -137,7 +131,7 @@ func _commit_handle(gizmo: EditorNode3DGizmo, handle_id: int, secondary: bool, r
 	ur.add_do_property(node, &"size", node.size) 
 	ur.add_do_property(node, &"position", node.position) 
 	ur.add_undo_property(node, &"size", restore)
-	ur.add_undo_property(node, &"position", restore_position)
+	ur.add_undo_property(node, &"position", gizmo.get_meta(&"initial_position"))
 	ur.add_do_method(self, "_redraw", gizmo)
 	ur.add_undo_method(self, "_redraw", gizmo)
 	ur.commit_action(true)

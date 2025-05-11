@@ -1,6 +1,9 @@
 @tool
 extends Node3D
 
+## Helper enum used with [member hidden_flags] to determine what faces include in mesh.
+enum {HIDDEN_FLAG_BOTTOM = 1, HIDDEN_FLAG_LEFT = 2, HIDDEN_FLAG_RIGHT = 4, HIDDEN_FLAG_BACK = 8,}
+
 ## Multiplier for debug mesh color alpha.
 const FILL_OPACITY_RATIO: float = 0.024 / 0.42
 
@@ -13,6 +16,7 @@ var step_count: int = 12: set = set_step_count
 @export_custom(17, "BaseMaterial3D,ShaderMaterial", PROPERTY_USAGE_DEFAULT)
 var material: Material: set = set_material
 
+
 @export_group("Visibility")
 
 @export
@@ -20,6 +24,10 @@ var triplanar_mode: bool = true: set = set_triplanar_mode
 
 @export_flags_3d_render 
 var layer_mask: int = 0xFFFFFF: set = set_render_layers
+
+## Hides certain faces on the stairs mesh if selected.
+@export_flags("Hide BOTTOM", "Hide LEFT", "Hide RIGHT", "Hide BACK")
+var hidden_flags: int = 0: set = set_hidden_flags
 
 @export_group("Physics")
 @export var physics_disabled: bool = false: set = set_physics_disabled
@@ -42,7 +50,7 @@ var debug_visible: bool = true: set = set_debug_visible
 @export 
 var debug_color: Color = Color(0.0, 0.6, 0.7, 0.42): set = set_debug_color
 
-@export 
+@export
 var debug_fill: bool = true: set = set_debug_fill
 
 var instance: RID
@@ -151,7 +159,7 @@ func update_mesh() -> void:
 	var step_offset: Vector3 = Vector3(0.0, step_size.y, -step_size.z)
 	
 	var st := SurfaceTool.new()
-	
+	var vertex_count: int = 0
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	
 	
@@ -173,49 +181,70 @@ func update_mesh() -> void:
 		add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y, -half_step.z), Vector3.ZERO)
 		add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y, half_step.z), Vector3.ZERO)
 		
+		for idx in [0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4,]:
+			st.add_index(vertex_count + idx)
 		
-		st.set_normal(Vector3.LEFT)
-		st.set_tangent(Plane.PLANE_YZ)
-		add_surface_vertex(st, offset + Vector3(-half_step.x, -half_step.y - (i * step_size.y), -half_step.z), Vector3.LEFT)
-		add_surface_vertex(st, offset + Vector3(-half_step.x, half_step.y, -half_step.z), Vector3.LEFT)
-		add_surface_vertex(st, offset + Vector3(-half_step.x, half_step.y , half_step.z), Vector3.LEFT)
-		add_surface_vertex(st, offset + Vector3(-half_step.x, -half_step.y - (i * step_size.y), half_step.z), Vector3.LEFT)
+		vertex_count += 8
 		
+		if not hidden_flags&HIDDEN_FLAG_LEFT:
+			st.set_normal(Vector3.LEFT)
+			st.set_tangent(Plane.PLANE_YZ)
+			add_surface_vertex(st, offset + Vector3(-half_step.x, -half_step.y - (i * step_size.y), -half_step.z), Vector3.LEFT)
+			add_surface_vertex(st, offset + Vector3(-half_step.x, half_step.y, -half_step.z), Vector3.LEFT)
+			add_surface_vertex(st, offset + Vector3(-half_step.x, half_step.y , half_step.z), Vector3.LEFT)
+			add_surface_vertex(st, offset + Vector3(-half_step.x, -half_step.y - (i * step_size.y), half_step.z), Vector3.LEFT)
+			
+			for idx: int in [0, 1, 2, 2, 3, 0,]:
+				st.add_index(vertex_count + idx)
+			
+			vertex_count += 4
 		
-		st.set_normal(Vector3.RIGHT)
-		st.set_tangent(-Plane.PLANE_YZ)
-		
-		add_surface_vertex(st, offset + Vector3(half_step.x, -half_step.y - (i * step_size.y), half_step.z), Vector3.RIGHT)
-		add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y , half_step.z), Vector3.RIGHT)
-		add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y, -half_step.z), Vector3.RIGHT)
-		add_surface_vertex(st, offset + Vector3(half_step.x, -half_step.y - (i * step_size.y), -half_step.z), Vector3.RIGHT)
-		
-		for idx: int in [0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4, 8, 9, 10, 10, 11, 8, 12, 13, 14, 14, 15, 12]:
-			st.add_index(i * STEP_VERTEX_COUNT + idx)
+		if not hidden_flags&HIDDEN_FLAG_RIGHT:
+			st.set_normal(Vector3.RIGHT)
+			st.set_tangent(-Plane.PLANE_YZ)
+			
+			add_surface_vertex(st, offset + Vector3(half_step.x, -half_step.y - (i * step_size.y), half_step.z), Vector3.RIGHT)
+			add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y , half_step.z), Vector3.RIGHT)
+			add_surface_vertex(st, offset + Vector3(half_step.x, half_step.y, -half_step.z), Vector3.RIGHT)
+			add_surface_vertex(st, offset + Vector3(half_step.x, -half_step.y - (i * step_size.y), -half_step.z), Vector3.RIGHT)
+			
+			for idx: int in [0, 1, 2, 2, 3, 0,]:
+				st.add_index(vertex_count + idx)
+			
+			vertex_count += 4
 		
 		offset += step_offset
 		
 		# End Loop
 	
-	st.set_normal(Vector3.FORWARD)
-	st.set_tangent(Plane.PLANE_XY)
+	if not hidden_flags&HIDDEN_FLAG_BACK:
+		st.set_normal(Vector3.FORWARD)
+		st.set_tangent(Plane.PLANE_XY)
+		
+		add_surface_vertex(st, half_size * Vector3(1.0, -1.0, -1.0), Vector3.FORWARD)
+		add_surface_vertex(st, half_size * Vector3(1.0, 1.0, -1.0), Vector3.FORWARD)
+		add_surface_vertex(st, half_size * Vector3(-1.0, 1.0, -1.0), Vector3.FORWARD)
+		add_surface_vertex(st, half_size * Vector3(-1.0, -1.0, -1.0), Vector3.FORWARD)
+		
+		for idx: int in [0, 1, 2, 2, 3, 0,]:	
+			st.add_index(vertex_count + idx)
+			
+		vertex_count += 4
 	
-	add_surface_vertex(st, half_size * Vector3(1.0, -1.0, -1.0), Vector3.FORWARD)
-	add_surface_vertex(st, half_size * Vector3(1.0, 1.0, -1.0), Vector3.FORWARD)
-	add_surface_vertex(st, half_size * Vector3(-1.0, 1.0, -1.0), Vector3.FORWARD)
-	add_surface_vertex(st, half_size * Vector3(-1.0, -1.0, -1.0), Vector3.FORWARD)
-	
-	
-	st.set_normal(Vector3.DOWN)
-	st.set_tangent(-Plane.PLANE_XZ)
-	
-	add_surface_vertex(st, half_size * Vector3(-1.0, -1.0, -1.0), Vector3.DOWN)
-	add_surface_vertex(st, half_size * Vector3(-1.0, -1.0, 1.0), Vector3.DOWN)
-	add_surface_vertex(st, half_size * Vector3(1.0, -1.0, 1.0), Vector3.DOWN)
-	add_surface_vertex(st, half_size * Vector3(1.0, -1.0, -1.0), Vector3.DOWN)
-	
-	for idx: int in [0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4,]:
-		st.add_index(step_count * STEP_VERTEX_COUNT + idx)
+	if not hidden_flags&HIDDEN_FLAG_BOTTOM:
+		st.set_normal(Vector3.DOWN)
+		st.set_tangent(-Plane.PLANE_XZ)
+		
+		add_surface_vertex(st, half_size * Vector3(-1.0, -1.0, -1.0), Vector3.DOWN)
+		add_surface_vertex(st, half_size * Vector3(-1.0, -1.0, 1.0), Vector3.DOWN)
+		add_surface_vertex(st, half_size * Vector3(1.0, -1.0, 1.0), Vector3.DOWN)
+		add_surface_vertex(st, half_size * Vector3(1.0, -1.0, -1.0), Vector3.DOWN)
+		
+		for idx: int in [0, 1, 2, 2, 3, 0,]:	
+			st.add_index(vertex_count + idx)
+		
+		vertex_count += 4 # Included in case other vertices are added at the end.
+		
 	
 	st.optimize_indices_for_cache()
 	
@@ -296,6 +325,10 @@ func set_size(val: Vector3) -> void:
 func set_material(val: Material) -> void:
 	material = val
 	apply_material()
+
+func set_hidden_flags(val: int) -> void:
+	hidden_flags = val
+	update_mesh()
 
 func set_triplanar_mode(val: bool) -> void:
 	triplanar_mode = val
